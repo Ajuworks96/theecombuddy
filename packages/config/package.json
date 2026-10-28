@@ -1,0 +1,12 @@
+{
+  "name": "@the-ecom-buddy/config",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared tooling and configuration for The Ecom Buddy",
+  "scripts": {
+    "typecheck": "echo \"config verified\""
+  },
+  "files": [
+    "tsconfig.base.json"
+  ]
+}

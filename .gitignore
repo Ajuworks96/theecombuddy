@@ -9,6 +9,7 @@ build/
 .next/
 out/
 .medusa/
+*.tsbuildinfo
 
 # Turborepo
 .turbo/
@@ -26,7 +27,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Database & Uploads
+# Database & Local Cluster
+deploy/data/
 *.sqlite
 *.sqlite3
 *.db

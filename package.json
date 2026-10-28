@@ -8,9 +8,21 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "echo \"Run specific workspace dev scripts in Milestone 02\"",
-    "build": "echo \"Run specific workspace build scripts in Milestone 02\"",
-    "test": "echo \"Run test suite in Milestone 02\""
+    "db:start": "node deploy/scripts/local-db.js start",
+    "db:stop": "node deploy/scripts/local-db.js stop",
+    "db:status": "node deploy/scripts/local-db.js status",
+    "db:migrate": "npm run db:migrate --workspace=@the-ecom-buddy/backend",
+    "dev:backend": "npm run dev --workspace=@the-ecom-buddy/backend",
+    "dev:storefront": "npm run dev --workspace=@the-ecom-buddy/storefront",
+    "build:backend": "npm run build --workspace=@the-ecom-buddy/backend",
+    "build:storefront": "npm run build --workspace=@the-ecom-buddy/storefront",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces"
+  },
+  "devDependencies": {
+    "embedded-postgres": "^18.4.0-beta.17",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
   },
   "engines": {
     "node": ">=20.0.0",

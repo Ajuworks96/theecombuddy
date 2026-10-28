@@ -1,22 +1,22 @@
 # Design References
 
-This directory is the **visual authority** for frontend implementation across **The Ecom Buddy** platform.
+This directory is the **authoritative visual benchmark** for frontend and administrative UI implementation across **The Ecom Buddy** platform.
 
 ## Design Philosophy & Mandatory Rules
 1. **Strict Prohibition of AI Aesthetics**: Strictly avoid generic AI-generated aesthetics, floating doodle icons, ungrounded purple/cyan gradients, and repetitive cookie-cutter layouts.
 2. **Editorial & Tactile Commerce**: Visual rhythm, high-contrast typography, generous whitespace, sharp micro-borders, authentic product-first photography layout, and frictionless interaction patterns.
-3. **Responsive Consistency**: Desktop, tablet, and mobile layouts must preserve the visual hierarchy and high-conversion UX.
+3. **Responsive Consistency**: Desktop, tablet, and mobile layouts must preserve visual hierarchy, touch friendliness, and conversion-focused ergonomics.
 
-## Reference Inventory (Milestone 01 Audit)
+## Authoritative Reference Mapping
 
-| Screen Reference | Scope | Description | Status |
-| :--- | :--- | :--- | :--- |
-| `01-storefront-hero-carousel` | Storefront Homepage | 6-slide carousel with desktop/mobile focal handling, announcement bar, transparent-to-solid navigation header | Pending Placement |
-| `02-curated-product-grid` | Catalog & Collections | Curated grid layout, category tabs, product badges, instant quick-view hover states | Pending Placement |
-| `03-product-detail-page` | Product Page (PDP) | Multi-angle gallery, variant selector pills/swatches, sticky buy-box, accordion details, social proof | Pending Placement |
-| `04-cart-and-mini-cart` | Cart Drawer | Slide-over cart with live subtotal, free shipping progress bar, inline quantity steppers | Pending Placement |
-| `05-checkout-experience` | Checkout Flow | Distraction-free 1-page checkout, order summary sidebar, express checkout options, trust badges | Pending Placement |
-| `06-merchant-admin-catalog` | Merchant Dashboard | High-density data table for 500+ SKUs, batch inventory adjustments, variant matrix generator | Pending Placement |
-| `07-storefront-customizer` | Merchant Customizer | No-code 6-slide carousel manager, branding color tokens, Meta CAPI & GA4 configuration panel | Pending Placement |
+| Identifier | Reference Name | Target Scope | Description & UI Authority |
+| :---: | :--- | :--- | :--- |
+| **01** | `01-merchant-onboarding-reference` | Admin Onboarding | Step-by-step merchant setup wizard: store profile, India-first currency (INR) & tax settings, payment keys, and seed catalog activation. |
+| **02** | `02-crescendo-homepage` | Storefront Home | Editorial homepage: dynamic hero carousel (pre-configured with 6 default slides), brand storytelling, curated product discovery rows, and high-contrast navigation. |
+| **03** | `03-velora-product-details` | Storefront PDP | High-end Product Detail Page: dual-column sticky layout, multi-angle gallery, tactile color swatches & size pills, and sticky mobile buy-box. |
+| **04** | `04-aero-step-editorial-storefront` | Storefront Catalog | Curated storytelling collection grid, editorial brand layout, typography rhythm, asymmetric tiles, and instant quick-view drawers. |
+| **05** | `05-philox-promotional-layout` | Storefront Promotions | High-impact marketing banner layouts, promotional features, seasonal showcases, split-card promotions, and top announcement bars. |
+| **06** | `06-colorpixel-merchant-dashboard` | Admin Backoffice | High-density administrative workspace: inventory tracking across 500+ products (thousands of SKUs), low-stock badges, order progression, and analytics. |
+| **07** | `07-salessync-product-creation` | Admin Product Editor | Streamlined product and variant matrix creator: multi-option generator (Size, Color), image-to-variant mapping, HSN tax input, and inventory allocation. |
 
-> **Note for Project Lead / Merchant**: Please deposit the seven visual reference screenshot files into this directory (`/design-references`) following the naming convention above prior to initiating Milestone 04 (Storefront Implementation).
+> **Note for Project Lead / Merchant**: Please deposit the visual reference screenshot files into this directory following the identifiers above prior to initiating Milestone 04 (Storefront Implementation).

@@ -2,7 +2,7 @@
 
 **Project**: The Ecom Buddy  
 **Document**: Commerce Workflows & State Machines Specification  
-**Status**: Approved for Architecture Review  
+**Status**: Revised Architecture Specification (Post-Review Revision)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
@@ -10,185 +10,154 @@
 
 ## 1. Executive Summary
 
-This document specifies the exact business logic, state transitions, concurrency controls, and failure compensation routines governing core commerce operations across **The Ecom Buddy**. 
+This document specifies the business workflows, transactional state machines, and concurrency controls governing **The Ecom Buddy**. 
 
-Every workflow is designed to prevent race conditions, avoid overselling high-demand stock, guarantee payment idempotency, and provide frictionless recovery paths when customer or third-party service errors occur.
+In strict adherence to **Medusa v2** standards, all core commerce operations (inventory reservation, checkout progression, payment authorization, and order completion) utilize Medusa's official **Workflows Engine** with durable execution and automated compensation. Custom logic that duplicates or bypasses Medusa's checkout engine has been removed.
 
 ---
 
-## 2. Product & Variant Lifecycle Workflow
+## 2. Product & Variant Lifecycle Workflow (500+ Products Scale)
 
-### 2.1 State Transition Model
-Products transition through three distinct lifecycle states: `Draft`, `Published`, and `Archived`.
+### 2.1 State Transitions & Scale Requirements
+* **Catalog Capacity**: The catalog supports a minimum of **500 distinct products** per merchant. With multi-attribute variants (Size $\times$ Color $\times$ Material), typical merchant catalogs span **1,500 to 4,000+ distinct sellable SKUs**.
+* **Product Status States**: `Draft`, `Published`, and `Archived`.
+* **Variant Matrix Generation**: When a merchant creates options (e.g., Size: S, M, L $\times$ Color: Navy, Olive), the admin interface generates the full variant combination matrix.
+* **SKU & Barcode Conventions**: Deterministic SKU generation formatted as:  
+  `[PRODUCT-HANDLE]-[OPTION1-VALUE]-[OPTION2-VALUE]` (e.g., `LNN-SHIRT-NVY-M`).
+* **HSN & Tax Classification**: Each product is assigned an Indian HSN (Harmonized System of Nomenclature) code (e.g., `6205` for Men's Shirts) to automate GST classification.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Draft : Merchant Creates New Product
-    Draft --> Published : Merchant Completes Required Fields & Publishes
-    Published --> Draft : Merchant Temporarily Hides from Storefront
-    Published --> Archived : Merchant Discontinues Product
-    Draft --> Archived : Merchant Abandons Product
-    Archived --> Draft : Merchant Restores Product
+    [*] --> Draft : Merchant Creates Product (SalesSync Reference)
+    Draft --> Published : Validated (Title, Handle, HSN, Variant SKUs, Prices in INR)
+    Published --> Draft : Temporarily Hidden from Storefront
+    Published --> Archived : Discontinued
+    Archived --> Draft : Restored by Merchant
 ```
-
-### 2.2 Variant Matrix Generation & SKU Consistency
-When creating products with multiple options (e.g., Size: S, M, L $\times$ Color: Navy, Olive):
-1. **Cartesian Product Generator**: The system automatically computes the full variant matrix ($S \times C = N$ variants).
-2. **Deterministic SKU Creation**: SKUs are automatically suggested following the pattern:  
-   `[PRODUCT_SLUG]-[OPTION1_VAL]-[OPTION2_VAL]` (e.g., `LNN-SHIRT-NVY-M`).
-3. **Price & Weight Inheritance**: Base price and weight are inherited from the parent product unless explicitly overridden at the variant level.
-4. **Media Mapping**: High-resolution gallery images can be pinned to specific variant colors so selecting a swatch on the frontend immediately swaps the active PDP gallery image.
 
 ---
 
-## 3. Inventory & Reservation Lifecycle Workflow
+## 3. Inventory & Reservation Lifecycle (Official Medusa Workflows)
 
-### 3.1 Concurrency & Race Condition Prevention
-In high-volume flash sales or limited-inventory scenarios, multiple shoppers may attempt to purchase the final unit simultaneously. The Ecom Buddy uses a **two-phase inventory reservation mechanism**:
+### 3.1 Eliminating Conflicting Custom Logic
+Previous proposals for manual SQL row-level locks (`SELECT FOR UPDATE`) and custom cron workers have been replaced with Medusa v2's native **Inventory Module** and **`completeCartWorkflow`**.
+
+### 3.2 Native Reservation & Compensation Workflow
+During checkout, Medusa v2 orchestrates stock management through declarative workflow steps:
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Shopper as Shopper
     participant Storefront as Next.js Storefront
-    participant Backend as Medusa v2 Engine
-    participant DB as PostgreSQL (DB)
-    participant Stripe as Payment Gateway
+    participant MedusaWorkflow as completeCartWorkflow
+    participant InventoryMod as Inventory Module
+    participant PaymentMod as Payment Provider (Razorpay / Stripe)
+    participant OrderMod as Order Module
 
-    Shopper->>Storefront: Enters Checkout (Review & Pay)
-    Storefront->>Backend: POST /store/carts/{id}/complete
-    Note over Backend,DB: Phase 1: Temporary Inventory Reservation
-    Backend->>DB: BEGIN TRANSACTION
-    Backend->>DB: SELECT stock FROM inventory_levels WHERE id = ? FOR UPDATE
-    alt Stock Available (stock >= qty)
-        Backend->>DB: INSERT INTO inventory_reservations (cart_id, variant_id, qty, expires_at: NOW() + 15m)
-        Backend->>DB: UPDATE inventory_levels SET reserved_quantity = reserved_quantity + qty
-        Backend->>DB: COMMIT TRANSACTION
-    else Stock Insufficient
-        Backend->>DB: ROLLBACK TRANSACTION
-        Backend-->>Storefront: Error 409 Conflict: "Item out of stock"
-        Storefront-->>Shopper: Notify shopper & update cart line item
-    end
+    Shopper->>Storefront: Clicks "Complete Purchase"
+    Storefront->>MedusaWorkflow: POST /store/carts/{id}/complete
 
-    Note over Backend,Stripe: Phase 2: Payment Execution
-    Backend->>Stripe: Authorize & Capture Payment (Idempotency-Key)
-    alt Payment Succeeded
-        Backend->>DB: BEGIN TRANSACTION
-        Backend->>DB: Deduct physical stock (stock = stock - qty)
-        Backend->>DB: Remove temporary reservation
-        Backend->>DB: Create Order Record (Status: Paid)
-        Backend->>DB: COMMIT TRANSACTION
-        Backend-->>Storefront: Order Success Confirmation
-        Storefront-->>Shopper: Display Order Confirmation Page
-    else Payment Failed / Expired
-        Backend->>DB: BEGIN TRANSACTION
-        Backend->>DB: Release reservation (reserved_quantity = reserved_quantity - qty)
-        Backend->>DB: COMMIT TRANSACTION
-        Backend-->>Storefront: Error 402: "Payment declined"
-        Storefront-->>Shopper: Prompt to try another card
+    Note over MedusaWorkflow,InventoryMod: Step 1: reserveInventoryStep
+    MedusaWorkflow->>InventoryMod: Create temporary reservation items for cart line items
+    alt Stock Unavailable for any line item
+        MedusaWorkflow-->>Storefront: Error 409 Conflict (Out of stock)
+        Storefront-->>Shopper: Alert shopper: "Item out of stock"
+    else Stock Successfully Reserved
+        Note over MedusaWorkflow,PaymentMod: Step 2: authorizePaymentSessionStep
+        MedusaWorkflow->>PaymentMod: Authorize payment (UPI / Netbanking / Card / COD)
+        alt Authorization Fails / Declined / Aborted
+            Note over MedusaWorkflow,InventoryMod: Workflow Compensation Step Triggered
+            MedusaWorkflow->>InventoryMod: Delete reservation items (Restores available stock)
+            MedusaWorkflow-->>Storefront: Error 402 Payment Declined
+            Storefront-->>Shopper: Display payment error & prompt retry
+        else Authorization Succeeded
+            Note over MedusaWorkflow,OrderMod: Step 3: createOrderStep & adjustInventoryLevelsStep
+            MedusaWorkflow->>OrderMod: Create confirmed Order record
+            MedusaWorkflow->>InventoryMod: Deduct physical stock & release reservations
+            MedusaWorkflow-->>Storefront: Order Placed Success Response
+            Storefront-->>Shopper: Redirect to Confirmation Page
+        end
     end
 ```
 
-### 3.2 Inventory TTL Auto-Cleanup Worker
-* A background cron worker evaluates active reservations every 60 seconds.
-* Any reservation where `expires_at < NOW()` and no successful order has been attached is automatically released back to the general pool, preventing abandoned checkouts from artificially depleting merchant inventory.
+### 3.3 Concurrency & Overselling Prevention
+* Medusa's `reserveInventoryStep` validates available inventory against `(stocked_quantity - reserved_quantity)`.
+* Because reservation creation occurs in an atomic database transaction prior to payment authorization, multiple simultaneous checkout attempts for the last remaining unit cannot both succeed. The second transaction immediately receives an out-of-stock validation error.
+* **Automatic Reservation Expiry**: Medusa's built-in reservation TTL automatically cleans up expired reservations if a shopper abandons an active checkout session without completing payment.
 
 ---
 
-## 4. Shopping Cart Lifecycle Workflow
+## 4. India-First Checkout & Payment Workflow
 
-```mermaid
-stateDiagram-v2
-    [*] --> AnonymousGuestCart : Shopper adds first item
-    AnonymousGuestCart --> AnonymousGuestCart : Update line items / add coupons
-    AnonymousGuestCart --> MergedCustomerCart : Shopper logs in or identifies email
-    MergedCustomerCart --> ActiveCheckoutSession : Shopper proceeds to checkout
-    ActiveCheckoutSession --> CompletedOrder : Successful payment capture
-    ActiveCheckoutSession --> AbandonedCart : Cart inactive > 24 hours
-    AnonymousGuestCart --> ExpiredCart : Cart inactive > 14 days
-```
-
-### 4.1 Price Snapshotting Rule
-When an item is added to a cart:
-* The unit price, applied currency, and tax rate are **snapshotted** into the `cart_line_items` record.
-* If a merchant modifies a product's price in the admin catalog while a shopper is active, the cart validates prices against catalog changes prior to checkout completion, alerting the user transparently if a price update has occurred.
-
-### 4.2 Discount & Promotional Code Engine
-* **Validation Rules Evaluated in Order**:
-  1. *Code Validity*: Code exists, is active, and current date is within `[starts_at, ends_at]`.
-  2. *Usage Limits*: Total usage count $< \text{max\_limit}$ and customer usage count $< \text{per\_customer\_limit}$.
-  3. *Cart Requirements*: Cart subtotal meets minimum spend threshold; cart contains eligible categories or products.
-* **Stacking Policy**: By default, one promotional coupon can be applied per checkout to prevent discount stacking exploits.
-
----
-
-## 5. Checkout & Payment Workflow
-
-### 5.1 4-Step Checkout Flow
-1. **Step 1: Customer Contact & Delivery Details**
-   * Email address (mandatory for CAPI event matching and digital receipts).
-   * Shipping destination: Country, State/Province, City, Postal Code, Street Address, Apartment/Suite, Phone Number.
+### 4.1 Four-Step Checkout Progression
+1. **Step 1: Contact & Delivery Address (India-First)**
+   * Mobile phone number (mandatory for Indian logistics SMS tracking) and Email address.
+   * Delivery destination:
+     * Full Name & Street Address.
+     * Flat/Building No. & Landmark.
+     * 6-digit **PIN Code** (with automated asynchronous lookup for City and State).
+     * State/Union Territory dropdown (all 28 states & 8 UTs).
+   * Optional: B2B Business Name and 15-character **GSTIN** for tax invoice credit.
 2. **Step 2: Shipping Method Selection**
-   * Real-time calculation of available shipping methods based on customer shipping zone and total order weight/subtotal.
-   * Free Shipping automatically pre-selected if cart subtotal exceeds the merchant's configured threshold.
-3. **Step 3: Billing Address**
-   * Default: *"Same as shipping address"*.
-   * Option to specify independent tax/billing address.
-4. **Step 4: Payment Execution & Tokenization**
-   * Payment provider selection (Stripe Credit Card / Apple Pay / Google Pay, Razorpay, or Cash on Delivery).
-   * Secure credit card tokenization via Stripe Elements iframe.
+   * Real-time calculation based on delivery PIN code and destination zone:
+     * *Local / Metro Express* (1–2 business days).
+     * *Standard Surface (Rest of India)* (3–5 business days).
+     * *Free Shipping* (automatically applied when order subtotal exceeds merchant threshold, e.g., ₹1,499).
+3. **Step 3: GST Tax Calculation (CGST/SGST vs. IGST)**
+   * The tax engine dynamically computes:
+     * If customer State = merchant origin State $\rightarrow$ **CGST** (e.g., 6%) + **SGST** (e.g., 6%).
+     * If customer State $\ne$ merchant origin State $\rightarrow$ **IGST** (e.g., 12%).
+   * Displayed clearly before final payment authorization.
+4. **Step 4: Payment Authorization**
+   * **Razorpay**:
+     * **UPI**: Instant QR code display on desktop; UPI Intent app switch (Google Pay, PhonePe, Paytm, CRED) on mobile.
+     * **Netbanking**: Direct redirect across major Indian banks.
+     * **Cards**: RuPay, Visa, Mastercard with mandatory 3D-Secure OTP verification.
+   * **Cash on Delivery (COD)**:
+     * Validated against merchant's PIN code whitelist.
+     * Optional flat or tiered COD convenience fee (e.g., ₹50).
+     * Optional phone verification OTP to reduce RTO (Return to Origin) rate.
+   * **Stripe**: International card processing and Apple Pay for overseas customers.
 
-### 5.2 Payment Idempotency & Webhook Resilience
-To prevent duplicate charges caused by erratic mobile internet connections or repeated button clicks:
-* A cryptographically unique **Idempotency Key** (`cart_id + version + timestamp`) is transmitted with every payment authorization request.
-* **Webhook Redundancy**: If the customer closes their browser before the redirect returns, the backend listens to Stripe's `payment_intent.succeeded` webhook. The webhook triggers the identical order creation workflow safely using the same idempotency lock.
+### 4.2 Webhook Idempotency & Reconciliation
+* **Idempotent Handlers**: All payment webhooks (`payment.captured`, `order.paid`, `payment.failed`) utilize Medusa's event handler idempotency guarantees. Webhooks verify the signature and ensure that an already-processed transaction is acknowledged with `200 OK` without triggering duplicate order creation.
+* **Automated Reconciliation**: A background reconciliation routine polls pending payment sessions older than 30 minutes against Razorpay/Stripe APIs to capture any authorizations whose browser redirect was interrupted by mobile network drops.
 
 ---
 
-## 6. Order Fulfillment & Processing Workflow
+## 5. Order Fulfillment, Returns & Refund Workflow
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PaymentPending : Order Initiated
-    PaymentPending --> Paid : Payment Captured / Webhook Verified
-    PaymentPending --> Failed : Payment Declined / Timed Out
-    
-    Paid --> Processing : Merchant Reviews Order
-    Processing --> PartiallyFulfilled : First Package Dispatched
-    Processing --> Fulfilled : All Items Dispatched
-    PartiallyFulfilled --> Fulfilled : Final Items Dispatched
+    [*] --> PaymentPending : Order Placed
+    PaymentPending --> Paid : Payment Captured (Razorpay / Stripe)
+    PaymentPending --> COD_Confirmed : COD Order Verified
 
-    Fulfilled --> Delivered : Carrier Confirms Delivery
+    Paid --> Processing : Merchant Reviews Order
+    COD_Confirmed --> Processing : Merchant Packs Order
+
+    Processing --> Fulfilled : Waybill Generated & Tracking Added
+    Fulfilled --> OutForDelivery : Logistics Carrier Dispatches
+    OutForDelivery --> Delivered : Customer Receives Order
+
+    Paid --> Cancelled : Cancelled Prior to Dispatch
+    COD_Confirmed --> Cancelled : Cancelled Prior to Dispatch
     
-    Paid --> Cancelled : Merchant or Customer Cancels
-    Processing --> Cancelled : Out of Stock / Merchant Cancels
-    
-    Delivered --> ReturnInitiated : Customer Requests Return
-    ReturnInitiated --> Returned : Merchant Receives Package
-    Returned --> Refunded : Merchant Issues Refund
-    Paid --> Refunded : Instant Full Refund
+    Delivered --> ReturnInitiated : Customer Requests Return (Within Window)
+    ReturnInitiated --> Returned : Merchant Inspects Returned Unit
+    Returned --> Refunded : Refund Issued (via Original Payment Gateway)
 ```
 
-### 6.1 Merchant Fulfillment Actions
-1. **Generating Documents**: In the merchant admin, clicking **"Generate Packing Slip"** creates a clean, printable PDF containing customer shipping address, order items, SKU codes, and merchant brand logo.
-2. **Dispatching Packages**: Merchant inputs carrier name (e.g., FedEx, DHL, USPS, BlueDart) and Tracking Number.
-3. **Customer Alert**: An automated transactional email is instantly dispatched containing the carrier tracking hyperlink.
+### 5.1 Merchant Fulfillment Actions
+* **GST Tax Invoice & Packing Slip**: Non-technical merchants can generate a tax-compliant Indian GST invoice (PDF) in one click from the admin dashboard, displaying:
+  * Merchant GSTIN, PAN, and registered address.
+  * Customer billing address and optional customer GSTIN.
+  * Itemized line items with HSN codes, taxable value, CGST/SGST/IGST rates, and amounts in INR (`₹`).
+* **Logistics Tracking**: Merchant enters carrier name (e.g., Shiprocket, Delhivery, BlueDart) and Tracking Number/AWB. Automated transactional SMS and Email are dispatched to the customer.
 
-### 6.2 Refund & Restock Automation
-When an order or specific line item is refunded:
-* Merchant selects refund amount (Full or Partial).
-* Checkbox: **"Restock returned items into inventory"** (default checked).
-* If checked, the system increments `inventory_levels` atomically and writes an audit log entry.
-* Refund is issued through the original payment gateway API without the merchant ever handling card details.
-
----
-
-## 7. Merchant & Customer Notification Workflows
-
-| Trigger Event | Recipient | Channel | Payload / Template |
-| :--- | :--- | :--- | :--- |
-| **Order Paid** | Customer | Email | Order confirmation, itemized receipt, shipping address, order tracking link |
-| **Order Paid** | Merchant | Email / Dashboard | New order notification, customer name, total amount, items purchased |
-| **Order Shipped** | Customer | Email | Shipping confirmation, carrier tracking number, direct tracking URL |
-| **Low Stock Threshold** | Merchant | Email / Dashboard | Warning: Variant SKU has dropped below configured threshold ($N$ units remaining) |
-| **Order Refunded** | Customer | Email | Refund notice, amount credited, original payment method details |
+### 5.2 Refund & Restock Automation
+* When issuing refunds via the admin:
+  * Merchant specifies refund amount (Full or Partial).
+  * Checkbox: **"Restock returned items to inventory"** (default checked).
+  * Medusa's official refund workflow automatically issues the credit via Razorpay/Stripe API and increments physical inventory atomically.

@@ -2,27 +2,30 @@
 
 **Project**: The Ecom Buddy  
 **Document**: Development Roadmap & Quality Gates  
-**Status**: Approved for Architecture Review  
+**Status**: Revised Architecture Specification (Post-Review Revision)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
 ---
 
-## 1. Roadmap Overview & Phased Execution
+## 1. Phased Execution Overview
 
-To deliver a premium, production-grade white-label e-commerce platform with zero technical debt, engineering execution is structured into **seven sequential milestones**. Each milestone has rigorous quality gates and deliverables that must be verified before proceeding to the next phase.
+The engineering execution plan is partitioned into **seven sequential milestones**. The revised roadmap incorporates three critical architectural enhancements:
+1. **Early Vertical-Slice Testing** in Milestone 02: Testing `product -> variant -> inventory -> cart -> checkout -> order` directly through Medusa v2 workflows before building frontend UI.
+2. **Early Deployment Validation** in Milestone 03: Testing Docker Compose builds and database persistence early rather than discovering environment issues at the end.
+3. **Foundational SEO during Storefront Build** in Milestone 04: Integrating metadata, canonicals, and structured data alongside Next.js 15 UI implementation.
 
 ```mermaid
 flowchart TD
-    M1["Milestone 01: Architecture & Technical Foundations\n(CURRENT — SPECIFICATION & SCHEMAS)"]
-    M2["Milestone 02: Engine Customization, Schemas & Seed Catalog\n(Medusa v2 + 500+ SKUs Seed Generator)"]
-    M3["Milestone 03: Merchant Admin & Customizer\n(6-Slide Carousel Editor, Theme & Marketing Panels)"]
-    M4["Milestone 04: Next.js 15 Storefront Implementation\n(Pixel-Perfect to 7 Design References, Sub-1s SSR)"]
-    M5["Milestone 05: Commerce Workflows & Gateways\n(Cart, 1-Page Checkout, Stripe/Razorpay, Stock Locks)"]
-    M6["Milestone 06: Growth, SEO & Tracking Engine\n(Meta Pixel + CAPI Deduplication, GA4, Sitemaps)"]
-    M7["Milestone 07: Licensing, Packaging & Deployment\n(Turnkey Docker Compose, White-Label CLI, Docs)"]
+    M1["Milestone 01: Architecture & Technical Specifications\n(CURRENT — REVISED & PENDING SIGN-OFF)"]
+    M2["Milestone 02: Medusa v2 Setup, 500+ Product Seed & Early Vertical Slice\n(Early Integration: Product -> Variant -> Inventory -> Cart -> Checkout -> Order)"]
+    M3["Milestone 03: Merchant Admin, Customizer & Early Deployment Check\n(Onboarding, Carousel Manager, ColorPixel Admin, Docker Validation)"]
+    M4["Milestone 04: Next.js 15 Storefront + Foundational SEO\n(Crescendo, Velora, Aero Step, Philox + Metadata, Canonicals, Schema)"]
+    M5["Milestone 05: India-First Commerce, Razorpay, COD & GST Engine\n(UPI, Netbanking, COD with Pin Code Check, CGST/SGST/IGST, Idempotency)"]
+    M6["Milestone 06: Growth, Telemetry & Feed Automation\n(Meta Pixel+CAPI Deduplication, GA4 MP Reconciliation, GMC Feed)"]
+    M7["Milestone 07: Licensing, Turnkey Packaging & Load Validation\n(One-Click Docker Compose, Automated Backups, k6 Load Benchmarks)"]
 
-    M1 -->|Client Review & Sign-Off| M2
+    M1 -->|Formal Approval| M2
     M2 --> M3
     M3 --> M4
     M4 --> M5
@@ -30,7 +33,7 @@ flowchart TD
     M6 --> M7
 
     style M1 fill:#f96,stroke:#333,stroke-width:2px
-    style M2 fill:#eee,stroke:#999,stroke-width:1px
+    style M2 fill:#bbf,stroke:#333,stroke-width:1px
     style M3 fill:#eee,stroke:#999,stroke-width:1px
     style M4 fill:#eee,stroke:#999,stroke-width:1px
     style M5 fill:#eee,stroke:#999,stroke-width:1px
@@ -40,97 +43,95 @@ flowchart TD
 
 ---
 
-## 2. Milestone Breakdown & Deliverables
+## 2. Detailed Milestone Specifications
 
-### Milestone 01: Architecture, Data Schemas & Workflows (Current Milestone)
-* **Status**: Complete & Pending Review.
-* **Scope**:
-  * Comprehensive requirements analysis for one-time software license model.
-  * Technical architecture selection (Medusa v2 + Next.js 15 App Router + PostgreSQL 16 + Redis 7 + Caddy).
-  * Commerce state machines and concurrency-safe inventory workflows.
-  * Complete relational database schema with custom extension tables (`buddy_*`).
-  * Dual-layer Meta Pixel + CAPI and GA4 tracking specifications.
-  * Design system plan aligning with the seven visual reference screenshots.
-  * Repository structure initialization and Git tracking.
-* **Quality Gate**: Review of all seven technical specifications in `/docs`. Zero UI code or mock pages created during this phase.
+### Milestone 01: Architecture Foundations & Technical Specifications (Current)
+* **Scope**: Complete revision of all seven architecture specifications in `/docs` addressing all review criteria (Medusa data ownership, India-first setup, unconstrained dynamic carousel, consent-gated telemetry, measurable NFR targets, authoritative design reference mapping).
+* **Deliverable**: `docs/ARCHITECTURE_REVIEW_CHANGES.md` and updated specifications.
+* **Quality Gate**: Architecture review sign-off. Zero UI code generated.
 
 ---
 
-### Milestone 02: Monorepo Setup, Engine Customization & Seed Catalog
+### Milestone 02: Engine Setup, 500+ Seed Generator & Early Vertical-Slice Test
 * **Prerequisites**: Approval of Milestone 01.
 * **Scope**:
-  * Monorepo workspace configuration (`apps/backend`, `apps/storefront`, `packages/types`, `packages/ui`).
-  * Initialize Medusa v2 core engine and database connection.
-  * Implement `@ecom-buddy/module-core` extending DML models for carousel slides, theme config, marketing credentials, and license state.
-  * Create high-performance database seed script generating realistic, premium catalog data across **500+ products** with multi-level variants, categories, images, and prices.
-* **Quality Gate**: Automated database migration runs cleanly; seed script populates 500+ SKUs; GraphQL/REST queries respond under 50ms locally.
+  * Initialize monorepo workspace (`apps/backend`, `apps/storefront`, `packages/*`).
+  * Initialize Medusa v2 core engine with PostgreSQL 16 and Redis 7.
+  * Implement `@ecom-buddy/module-core` custom DML modules (`carousel_slide`, `theme_config`, `marketing_config`, `gst_product_detail`).
+  * **Automated Seed Generator**: Generates at least **500 distinct products** with multi-attribute variants (yielding 1,500–4,000+ SKUs), realistic INR pricing (`₹`), HSN codes, categories, and image galleries.
+  * **Early Vertical-Slice Integration Test**: An automated end-to-end integration test executing:
+    $$\text{Create Product} \rightarrow \text{Generate Variants} \rightarrow \text{Set Inventory} \rightarrow \text{Add to Cart} \rightarrow \text{Reserve Stock} \rightarrow \text{Authorize Payment} \rightarrow \text{Create Order}$$
+    Testing built-in Medusa workflow compensations on payment failure.
+* **Quality Gate**: Vertical slice test passes 100%; seed generator populates 500+ products cleanly; database query benchmarks execute under 100ms.
 
 ---
 
-### Milestone 03: Merchant Admin Dashboard & Customizer
+### Milestone 03: Merchant Admin Dashboard & Early Deployment Validation
 * **Prerequisites**: Completion of Milestone 02.
 * **Scope**:
-  * Customize embedded Medusa Admin with The Ecom Buddy white-label styling.
-  * Build the **6-Slide Homepage Carousel Manager** with drag-and-drop ordering, desktop/mobile image uploaders, and live preview.
-  * Build the **Theme & Brand Token Customizer** (color pickers, font pairing selector, announcement bar controls).
-  * Build the **Marketing & Tracking Control Center** (Meta Pixel ID, CAPI token, GA4 ID, GTM container ID, and one-click Test Event dispatcher).
-* **Quality Gate**: Non-technical merchant can reorder carousel slides, update branding colors, and input tracking tokens via admin UI with zero code interaction.
+  * Build Merchant Onboarding Wizard (**Reference 01: Merchant onboarding reference**).
+  * Build High-Density Catalog Management (**Reference 06: ColorPixel merchant dashboard**).
+  * Build Variant Matrix & HSN Creator (**Reference 07: SalesSync product creation interface**).
+  * Build Dynamic Carousel Slide Customizer (pre-seeded with 6 default slides, full add/edit/reorder controls).
+  * **Early Deployment Validation**: Build Docker images for backend and database; validate container startup, persistent volume mounting, and database migrations on a clean test environment.
+* **Quality Gate**: Non-technical merchant can create products, adjust stock, and edit carousel slides via admin UI; Docker container boots and migrates cleanly.
 
 ---
 
-### Milestone 04: Next.js 15 Storefront Implementation
-* **Prerequisites**: Confirmation and placement of seven design reference screenshots in `/design-references`.
+### Milestone 04: Next.js 15 Storefront Implementation + Foundational SEO
+* **Prerequisites**: Completion of Milestone 03 and visual confirmation of screenshots in `/design-references`.
 * **Scope**:
-  * Build storefront layout matching visual authority of the reference screenshots:
-    * Hero Section & responsive 6-slide carousel with LCP priority preloading.
-    * Curated product grid with quick-view drawer and secondary image hover.
-    * High-conversion Product Detail Page (PDP) with variant swatches and sticky mobile buy-box.
-    * Slide-over mini-cart drawer with live free shipping progress bar.
-    * Dedicated collection, category, and static policy pages.
-  * Enforce zero generic AI styling, zero arbitrary gradients, and strict WCAG 2.1 AA accessibility.
-* **Quality Gate**: Mobile & Desktop Google Lighthouse performance score $\ge 90$; visual parity confirmed against the 7 reference screenshots.
+  * Homepage Hero Carousel & Discovery (**Reference 02: Crescendo homepage**).
+  * High-Conversion Product Detail Page (**Reference 03: Velora product details**).
+  * Curated Collections & Storytelling (**Reference 04: Aero Step editorial storefront**).
+  * Promotional Features & Banners (**Reference 05: Philox promotional layout**).
+  * Slide-over Mini-Cart with dynamic Free Shipping progress bar.
+  * **Foundational SEO Architecture**:
+    * Dynamic metadata generation (`generateMetadata`) across products, categories, and static pages.
+    * Strict canonical URL enforcement and filter/sort handling.
+    * Schema.org JSON-LD structured data (`Product`, `Offer`, `BreadcrumbList`).
+    * Dynamic `robots.txt` and XML sitemaps (`/sitemap.xml`).
+* **Quality Gate**: Mobile & Desktop Google Lighthouse score $\ge 90$; visual fidelity aligned with reference screenshots.
 
 ---
 
-### Milestone 05: Commerce Workflows & Payment Integrations
+### Milestone 05: India-First Commerce, Razorpay, COD & Tax Engine
 * **Prerequisites**: Completion of Milestone 04.
 * **Scope**:
-  * Implement frictionless single-page checkout flow.
-  * Integrate Stripe Elements (Credit Cards, Apple Pay, Google Pay).
-  * Integrate secondary payment method (Razorpay or Cash on Delivery).
-  * Implement 15-minute temporary inventory reservation lock during active checkout.
-  * Implement idempotent payment confirmation webhooks and automated stock deduction.
-  * Build PDF packing slip and invoice generation for merchant fulfillment.
-* **Quality Gate**: End-to-end automated test executing full purchase cycle: Add to cart $\rightarrow$ Reserve stock $\rightarrow$ Complete payment $\rightarrow$ Verify order status in admin $\rightarrow$ Deduct inventory.
+  * Frictionless one-page checkout with Indian PIN code auto-fill for city/state.
+  * Razorpay payment gateway integration (UPI Intent/QR, Netbanking, Cards).
+  * Cash on Delivery (COD) engine with PIN code availability check and optional fee.
+  * Indian GST calculation engine (CGST+SGST vs. IGST split based on merchant and customer state).
+  * B2B GSTIN collection and one-click GST-compliant tax invoice PDF generation.
+  * Webhook idempotency and payment reconciliation workflows.
+* **Quality Gate**: Automated test suite executing successful UPI/Card/COD orders, verifying correct GST split and inventory deduction.
 
 ---
 
-### Milestone 06: Growth, SEO & Marketing Tracking Implementation
+### Milestone 06: Marketing, Telemetry & Feed Automation
 * **Prerequisites**: Completion of Milestone 05.
 * **Scope**:
-  * Implement dual-layer Meta tracking: client-side Pixel paired with Medusa backend CAPI event dispatcher.
-  * Enforce synchronized `event_id` generation for 100% deduplication across `ViewContent`, `AddToCart`, `InitiateCheckout`, and `Purchase`.
-  * Implement GA4 dataLayer pushes and server-side Measurement Protocol fallback.
-  * Implement dynamic XML sitemaps (`/sitemap.xml`, `/sitemap-products.xml`, `/sitemap-categories.xml`) with on-demand ISR revalidation.
-  * Implement dynamic JSON-LD structured data (`Product`, `Offer`, `BreadcrumbList`, `Organization`).
-  * Implement Google Consent Mode v2 cookie banner.
-* **Quality Gate**: Meta Test Event tool and GA4 DebugView verify 100% receipt and deduplication of client/server events.
+  * Dual-layer Meta tracking: browser pixel + server CAPI with stable entity-derived `event_id` and SHA-256 customer data hashing.
+  * Google Analytics 4 dataLayer pushes + Measurement Protocol backend validation.
+  * Google Consent Mode v2 implementation (default `denied`, dynamically updated on shopper opt-in).
+  * Automated Google Merchant Center product feed (`/feeds/google-merchant-center.xml`).
+* **Quality Gate**: Meta Test Event tool verifies receipt of client and server events with Event Match Quality $\ge 8.0/10$; GA4 DebugView confirms accurate event deduplication.
 
 ---
 
-### Milestone 07: Client Licensing, White-Label Packaging & One-Click Deployment
+### Milestone 07: Licensing, Turnkey Packaging & Load Validation
 * **Prerequisites**: Completion of Milestone 06.
 * **Scope**:
-  * Implement offline-capable cryptographic license verification (domain-bound signature check).
-  * Package complete stack into production-ready `docker-compose.yml` with Caddy automatic SSL.
-  * Create turnkey merchant installation script (`setup.sh`) prompting for domain, email, and payment keys.
-  * Create automated daily backup and disaster recovery scripts (`backup.sh`, `restore.sh`).
-  * Author non-technical merchant documentation and administrator manual.
-* **Quality Gate**: Clean deployment on fresh Ubuntu Linux VPS in under 15 minutes; automatic SSL validation; zero vendor branding visible to shoppers.
+  * Offline-capable domain-bound cryptographic license validation (Ed25519).
+  * Production Docker Compose configuration with Caddy automated TLS 1.3 reverse proxy.
+  * Automated daily backup and disaster recovery scripts (`backup.sh`, `restore.sh`).
+  * **Performance & Load Testing**: Execute **k6** load testing simulating 50 concurrent active shopper sessions; validate p95 response time $\le 300\text{ ms}$.
+  * Author non-technical merchant documentation.
+* **Quality Gate**: Turnkey deployment on fresh Ubuntu Linux VPS completes in under 15 minutes with automated SSL; k6 load test passes performance targets.
 
 ---
 
-## 3. Milestone Gatekeeper Policy
+## 3. Strict Milestone Gatekeeper Policy
 
 > [!IMPORTANT]
-> **Strict Milestone Boundary**: Engineering work on Milestone 02 will not commence until this document and all accompanying specifications in `/docs` have been thoroughly reviewed and formally accepted by the project owner.
+> **Approval Gate**: Development on Milestone 02 will not commence until the revised architectural blueprints and the review changes document (`docs/ARCHITECTURE_REVIEW_CHANGES.md`) have been approved.

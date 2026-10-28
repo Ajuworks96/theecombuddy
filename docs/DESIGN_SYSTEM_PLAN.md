@@ -2,46 +2,44 @@
 
 **Project**: The Ecom Buddy  
 **Document**: Design System & UI Specification Plan  
-**Status**: Approved for Architecture Review  
+**Status**: Revised Architecture Specification (Post-Review Revision)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
 ---
 
-## 1. Design Direction & Visual Authority
+## 1. Design Direction & Authoritative Reference Mapping
 
 ### 1.1 The Seven Visual Reference Screenshots
-The forthcoming frontend implementation across **The Ecom Buddy** is strictly governed by the seven design reference screenshots located in `/design-references`. 
+Frontend implementation across **The Ecom Buddy** is strictly governed by the seven visual reference designs located in `/design-references`. 
 
-These references represent a **high-end, editorial, conversion-focused e-commerce aesthetic** characterized by authentic photography, purposeful whitespace, refined typography, and tactile interface details.
+These references establish the benchmark for **authentic, editorial, tactile e-commerce design** and must be adhered to without improvisation:
 
-| Screenshot Identifier | Scope | Primary Visual & UX Deliverable |
-| :--- | :--- | :--- |
-| `01-storefront-hero-carousel` | Storefront Homepage | Curated 6-slide carousel with desktop/mobile focal point pairing, elegant typography overlay, and transparent-to-solid navigation header. |
-| `02-curated-product-grid` | Catalog & Collections | Asymmetric and structured grid rhythms, category pills, subtle hover elevation, secondary image flip, and instant quick-view drawers. |
-| `03-product-detail-page` | Product Page (PDP) | Multi-angle image gallery, tactile variant selectors (color swatches & size pills), sticky buy-box on mobile, accordion specs, and social proof. |
-| `04-cart-and-mini-cart` | Cart Drawer | Slide-over mini-cart with dynamic Free Shipping progress bar, inline quantity steppers, item deletion feedback, and sticky checkout button. |
-| `05-checkout-experience` | Checkout Flow | Distraction-free single-page checkout, collapsible order summary, express payment buttons (Apple Pay/Google Pay), and trust indicators. |
-| `06-merchant-admin-catalog` | Merchant Dashboard | High-density data table managing 500+ SKUs, batch inventory adjustments, low-stock visual badges, and variant matrix generator. |
-| `07-storefront-customizer` | Merchant Customizer | No-code visual editor for the 6 carousel slides, branding color tokens, typography pairings, and marketing API integrations. |
+| Slot | Reference Name | Domain / Scope | Authority & Key Visual Deliverables |
+| :---: | :--- | :--- | :--- |
+| **01** | **Merchant onboarding reference** | Admin Onboarding | Turnkey setup wizard: domain connection, brand logo/colors, currency (INR default), and initial payment setup. Clean, friendly, non-technical UX. |
+| **02** | **Crescendo homepage** | Storefront Hero & Home | Editorial hero presentation, layered typography hierarchy, curated product discovery rows, and high-contrast navigation bar. |
+| **03** | **Velora product details** | Storefront PDP | High-end Product Detail Page: dual-column sticky layout, tactile variant selector swatches, sticky mobile action bar, and accordion details. |
+| **04** | **Aero Step editorial storefront** | Storefront Collections | Editorial collection grids with asymmetric rhythms, category pills, subtle elevation on hover, and storytelling brand sections. |
+| **05** | **Philox promotional layout** | Storefront Promotions | High-impact promotional features, curated seasonal showcases, split-banner layouts, and announcement bars. |
+| **06** | **ColorPixel merchant dashboard** | Admin Console | High-density administrative workspace: inventory matrix, low-stock warnings, order progression, and real-time revenue analytics. |
+| **07** | **SalesSync product creation interface** | Admin Product Editor | Streamlined product and variant matrix creator: multi-option generator (Size, Color), image-to-variant mapping, HSN tax input, and inventory allocation. |
 
 ### 1.2 Strict Prohibitions
-To preserve commercial authenticity and avoid low-quality automated aesthetics, future frontend implementation is bound by the following prohibitions:
-* **No Generic "AI Aesthetics"**: Zero purple-to-teal neon gradients, no arbitrary geometric blobs, and no ungrounded decorative glowing cards.
-* **No AI-Generated Doodles or Illustrations**: Use authentic product photography and crisp, standardized SVG iconography (Lucide / Radix Icons).
-* **No Monotonous Template Layouts**: Avoid repetitive 4-column equal-height card grids with zero editorial hierarchy.
-* **No UI Implementation in Milestone 01**: Milestone 01 establishes specifications and tokens only. Code implementation commences in Milestone 02/04.
+* **No Generic AI Styling**: Strictly avoid purple-to-teal neon gradients, ungrounded geometric glowing blobs, and fake futuristic card borders.
+* **No AI Doodles or Generic Clip Art**: All iconography must use standardized, crisp SVG icons (Lucide / Radix Icons); all photography must represent authentic editorial product presentation.
+* **No Monotonous Template Layouts**: Avoid repetitive, rigid 4-column card grids without editorial visual hierarchy.
 
 ---
 
 ## 2. Design Tokens Architecture (Tailwind CSS v4 & CSS Variables)
 
-Design tokens are expressed as semantic CSS custom variables mapped into Tailwind CSS, ensuring theme customization is clean, performant, and controllable via the merchant dashboard without rebuilding CSS stylesheets.
+Design tokens are declared via semantic CSS variables mapped to Tailwind CSS utilities, allowing merchant theme customization without CSS recompilation.
 
 ### 2.1 Color Tokens
 ```css
 :root {
-  /* Surface & Background */
+  /* Surfaces */
   --surface-base: #FFFFFF;
   --surface-subtle: #F9FAFB;
   --surface-muted: #F3F4F6;
@@ -53,10 +51,10 @@ Design tokens are expressed as semantic CSS custom variables mapped into Tailwin
   --text-muted: #9CA3AF;
   --text-inverted: #FFFFFF;
 
-  /* Brand & Accents (Customizable by Merchant) */
-  --brand-primary: #18181B;     /* Default: Deep Architectural Zinc */
+  /* Brand Tokens (Merchant Customizable) */
+  --brand-primary: #18181B;       /* Deep architectural zinc */
   --brand-primary-hover: #27272A;
-  --brand-accent: #C28E5C;      /* Default: Editorial Warm Amber / Tan */
+  --brand-accent: #C28E5C;        /* Warm amber / tan accent */
   --brand-accent-hover: #A67545;
 
   /* Borders & Dividers */
@@ -71,115 +69,59 @@ Design tokens are expressed as semantic CSS custom variables mapped into Tailwin
 }
 ```
 
-### 2.2 Typography System
-The typography architecture pairs an **editorial serif for display headings** with a **crisp, modernist sans-serif for UI, metadata, and reading text**:
-
-| Role | Font Family | Weights | Intended Use |
-| :--- | :--- | :--- | :--- |
-| **Display / Editorial** | *Instrument Serif* / *Playfair Display* | 400, 400 Italic | Hero carousel headlines, collection titles, product display titles |
-| **Body / Interface** | *Plus Jakarta Sans* / *Inter* | 400, 500, 600, 700 | Navigation links, body copy, variant buttons, form labels |
-| **Tabular / Monospace** | *JetBrains Mono* / *Geist Mono* | 500, 600 | Pricing displays, inventory SKU numbers, order IDs, tracking codes |
-
-### 2.3 Elevation, Borders & Tactile Radius
-* **Border Radii**: Controlled micro-radii to maintain an architectural, high-end feel:
-  * Buttons & Form Inputs: `4px` or `6px` (`rounded-sm` / `rounded-md`).
-  * Product Cards & Dialogs: `8px` (`rounded-lg`).
-  * Variant Selection Pills: `9999px` (`rounded-full`).
-* **Borders**: Sharp `1px` borders (`border border-subtle`) replace heavy dropshadows, ensuring high contrast on all displays.
-* **Shadows**: Minimal elevation layers reserved strictly for interactive overlays (drawers, modals, dropdowns).
+### 2.2 Typography Hierarchy
+* **Display / Editorial**: *Instrument Serif* / *Playfair Display* (Used for Crescendo hero headlines, collection titles, and editorial showcases).
+* **Body / Interface**: *Plus Jakarta Sans* / *Inter* (Used for navigation, product card details, forms, and admin UI).
+* **Tabular / Monospace**: *JetBrains Mono* / *Geist Mono* (Used for INR pricing displays `₹1,49,999.00`, SKU codes, and order IDs).
 
 ---
 
 ## 3. Core Storefront Component Specifications
 
-### 3.1 The Six-Slide Homepage Carousel Component
+### 3.1 Dynamic Hero Carousel Component (Crescendo Reference)
+* **Six Default Pre-Configured Slides**: Ships with 6 production-grade default slides.
+* **Unconstrained Slide Count**: Merchants can dynamically add, edit, disable, reorder, or remove slides in the admin customizer.
+* **Responsive Picture Delivery**:
+  * Desktop Banner (`image_desktop_url`): Optimized 16:9 or 21:9 ratio.
+  * Mobile Banner (`image_mobile_url`): Optimized 4:5 or 1:1 ratio.
+* **LCP Performance**: Slide 1 is preloaded with `fetchpriority="high"`; subsequent slides utilize lazy loading.
+* **Touch & Keyboard UX**: Supports touch swipe gestures with momentum scrolling and full WCAG keyboard navigation (`Tab`, arrow keys, `Escape`).
 
-```mermaid
-flowchart LR
-    SlideContainer["Carousel Viewport (Relative, Overflow Hidden)"]
-    DesktopImg["Desktop Banner (16:9 / 21:9 Picture)"]
-    MobileImg["Mobile Banner (4:5 Picture)"]
-    Overlay["Text Scrim & Content Card"]
-    NavArrows["Previous / Next Nav Buttons (WCAG Keyboard)"]
-    Indicators["6 Dot Navigation Indicator Bar"]
+### 3.2 Product Detail Page (Velora Reference)
+* **Dual-Column Sticky Layout**: Desktop viewport keeps the right-hand buy-box sticky while the user scrolls through high-res multi-angle photography on the left.
+* **Tactile Variant Selectors**:
+  * Color: Circular swatches with visual selection rings and tooltip labels.
+  * Size: Rectangular tactile pills; out-of-stock sizes rendered with a subtle strikethrough and disabled state.
+* **Sticky Mobile Buy-Box**: Slides up smoothly from the bottom on mobile devices when the primary buy button scrolls out of view.
 
-    SlideContainer --> DesktopImg
-    SlideContainer --> MobileImg
-    SlideContainer --> Overlay
-    SlideContainer --> NavArrows
-    SlideContainer --> Indicators
-```
+### 3.3 Curated Collections Grid (Aero Step Reference)
+* **Asymmetrical Rhythm**: Editorial layout combining 2-column feature tiles with 3-column product listings.
+* **Hover Flip**: Smooth cross-fade to secondary lifestyle photo on desktop hover.
+* **Instant Quick-View**: Slide-up drawer allowing variant selection and cart addition without leaving the browsing grid.
 
-#### Technical Specifications:
-* **Capacity**: Fixed maximum of exactly 6 slots managed via merchant dashboard.
-* **Responsive Image Serving**: Employs `<picture>` tag serving distinct desktop (`image_desktop_url`) and mobile (`image_mobile_url`) assets to eliminate awkward cropping on smartphones.
-* **Performance / LCP**:
-  * Slide 1 asset includes `priority={true}` and `fetchpriority="high"`.
-  * Slides 2–6 utilize lazy loading with low-priority fetch.
-* **Interaction & Accessibility**:
-  * Touch swipe gestures with velocity inertia on mobile.
-  * Pause auto-advance on mouse hover or keyboard focus.
-  * Screen-reader announcements via `aria-roledescription="carousel"` and `aria-live="polite"`.
-
----
-
-### 3.2 Product Card Component
-* **Aspect Ratio**: Fixed `4:5` or `1:1` container preventing cumulative layout shift (CLS).
-* **Hover State**: Seamless fade-in to secondary lifestyle photograph on desktop cursor hover.
-* **Inventory Badge**: Discrete pills indicating *"Low Stock (Only 2 Left)"* or *"Pre-Order"*.
-* **Variant Quick-Preview**: Mini color swatch dots reflecting in-stock colorways without navigating away from the grid.
-
----
-
-### 3.3 Product Detail Page (PDP) Interactive Architecture
-* **Media Gallery**:
-  * Desktop: Dual-column sticky layout with vertical thumbnail strip and high-resolution main viewport with click-to-zoom.
-  * Mobile: Horizontal swipe carousel with counter indicator (e.g., `2 / 5`).
-* **Variant Selectors**:
-  * Colors: Circular swatches with visual checkmark indicator and tooltip color name.
-  * Sizes: Rectangular tactile pills; out-of-stock sizes rendered with a diagonal strikethrough line and disabled attribute.
-* **Sticky Mobile Buy-Box**:
-  * When the user scrolls past the main "Add to Cart" button on mobile devices, a compact sticky bar slides up from the bottom with thumbnail, price, variant summary, and one-tap purchase button.
-
----
-
-### 3.4 Slide-Over Mini-Cart Drawer
-* **Motion**: Smooth slide-in from right edge (`cubic-bezier(0.16, 1, 0.3, 1)`) with backdrop blur.
-* **Free Shipping Tier Indicator**:
-  * Dynamic calculation bar: `(subtotal / threshold) * 100%`.
-  * Contextual copy: *"Add $18.50 more to unlock Free Standard Shipping"* $\rightarrow$ *"Congratulations! You have unlocked Free Shipping"*.
-* **Optimistic Updates**: Changing quantity increments or decrements immediately in the UI using React 19 `useOptimistic` while the server mutation resolves in the background.
-
----
-
-### 3.5 Frictionless One-Page Checkout
-* **Visual Simplicity**: Distraction-free layout removing primary header navigation, footer links, and promotional banners.
-* **Summary Sidebar**: Sticky order summary on desktop; collapsible accordion on mobile.
-* **Security & Trust Signals**: Padlock icon, SSL encryption badge, and accepted payment method logos (Visa, Mastercard, Amex, Apple Pay, Google Pay).
+### 3.4 India-First Form Components
+* **Address Autocomplete**: 6-digit Indian PIN code input triggers automated background lookup for City and State.
+* **State / UT Selectors**: Pre-populated dropdown covering all 28 states and 8 union territories.
+* **Pricing Formatting**: Currency values formatted using the Indian numbering system (`₹12,499.00`).
 
 ---
 
 ## 4. Merchant Admin Component Specifications
 
-### 4.1 500+ SKU Data Table
-* **Density**: High-density table layout optimized for administrative speed.
-* **Features**:
-  * Virtualized scrolling or fast server-side pagination (25, 50, 100 rows per page).
-  * Instant search filtering across product titles and SKU codes.
-  * Inline stock editing with immediate optimistic save.
-  * Bulk action toolbar: *Bulk Price Adjustment*, *Bulk Publish/Draft*, *Export to CSV*.
+### 4.1 Onboarding Wizard (Merchant Onboarding Reference)
+* Step-by-step guided setup: Store Identity $\rightarrow$ Currency & Tax Region (India GST preset) $\rightarrow$ Payment Credentials (Razorpay) $\rightarrow$ Seed Catalog Import.
 
-### 4.2 The 6-Slide Carousel Manager (Storefront Customizer)
-* Visual accordion interface with 6 numbered slide cards.
-* Drag-and-drop vertical reordering.
-* Dual file drop-zones per slide: *Desktop Banner (1920x1080)* and *Mobile Banner (1080x1350)* with instant preview and focal point cropper.
-* Live preview viewport toggle (Desktop / Mobile view) rendering changes in real time.
+### 4.2 High-Density Catalog Table (ColorPixel Reference)
+* High-density table handling **500+ distinct products** and thousands of SKUs with virtualized scrolling, instant search filter, and inline inventory edits.
+
+### 4.3 Product & Variant Matrix Creator (SalesSync Reference)
+* Visual option generator allowing merchants to input sizes and colors, automatically generating SKUs with individual pricing, HSN codes, and inventory stock levels.
 
 ---
 
 ## 5. Accessibility & Quality Standards (WCAG 2.1 AA)
 
-1. **Color Contrast**: All text-to-background contrast ratios strictly meet or exceed `4.5:1` for normal body copy and `3:1` for large display headings.
-2. **Keyboard Navigability**: Every interactive component (carousel buttons, variant pills, cart drawer, checkout inputs) is fully operable via `Tab`, `Space`, `Enter`, and `Escape` keys with prominent focus rings (`focus-visible:ring-2`).
-3. **Screen Reader Semantic Hierarchy**: Strict single `h1` per page, nested `h2`/`h3` headings, descriptive `alt` tags on all product media, and ARIA live regions for cart count updates.
-4. **Reduced Motion**: Full support for `prefers-reduced-motion: reduce`, gracefully replacing slide animations with instant cuts.
+1. **Color Contrast**: All text elements achieve a minimum contrast ratio of `4.5:1` against their background (`3:1` for large display headings).
+2. **Keyboard Focus**: Prominent focus rings (`focus-visible:ring-2`) on all interactive controls.
+3. **Screen Readers**: Semantic ARIA live regions for cart drawer count updates and dynamic price adjustments.
+4. **Motion Safety**: Respects `prefers-reduced-motion: reduce` by replacing slide transitions with instant cuts.

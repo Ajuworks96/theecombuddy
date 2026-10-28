@@ -4,14 +4,17 @@
 
 ---
 
-## 1. Project Philosophy
+## 1. Project Philosophy & Architecture
 
-**The Ecom Buddy** is built for small and medium businesses that require an enterprise-grade direct-to-consumer store without being trapped by perpetual monthly SaaS tolls (Shopify/BigCommerce) or fragile legacy CMS plugins (WooCommerce).
+**The Ecom Buddy** is engineered for small and medium businesses (SMBs) requiring an enterprise-grade direct-to-consumer store without the perpetual monthly platform fees of Shopify/BigCommerce or the fragility and database bloat of legacy WordPress/WooCommerce installations.
 
-* **Business Model**: One-time software license, self-contained client deployments, private data ownership.
-* **Architecture**: Headless decoupled stack with **Medusa v2** (Commerce Engine & Embedded Admin) + **Next.js 15 App Router** (High-Performance Storefront) + **PostgreSQL 16** + **Redis 7** + **Caddy** (Automated SSL).
-* **Target Scale**: 500+ SKUs with multi-attribute variants, real-time inventory reservation, and sub-second page performance.
-* **Growth Built-In**: Native dual-layer **Meta Pixel + Conversions API (CAPI)** and **Google Analytics 4** tracking with server-side event deduplication.
+* **Business Model**: One-time software license, self-contained client deployments, complete merchant data sovereignty.
+* **Core Commerce Engine**: Built on **Medusa v2**'s official modular engine (`@medusajs/medusa/product`, `/inventory`, `/cart`, `/order`, `/payment`, `/tax`) with declarative Data Modeling Layer (DML) custom modules for store personalization.
+* **Storefront**: High-performance **Next.js 15 (App Router)** with React Server Components, on-demand ISR, and sub-second page performance.
+* **Catalog Capacity**: Engineered for a minimum of **500 distinct products** per merchant with multi-attribute variants yielding **1,500 to 4,000+ distinct sellable SKUs**.
+* **India-First Baseline**: Native Indian Rupee (`INR` / `₹`) formatting, **Razorpay** (UPI, Netbanking, Cards), **Cash on Delivery (COD)** with PIN-code checks, Indian address structures, and **GST calculation engine** (CGST/SGST vs. IGST with HSN codes).
+* **Growth & Telemetry**: Native dual-layer **Meta Pixel + Conversions API (CAPI)** with stable entity-derived `event_id` deduplication, **Google Analytics 4** with Measurement Protocol validation, and Google Consent Mode v2 privacy compliance.
+* **Visual Authority**: Strictly guided by seven design reference screens (Merchant Onboarding, Crescendo, Velora, Aero Step, Philox, ColorPixel, and SalesSync) with a complete prohibition of generic AI aesthetics.
 
 ---
 
@@ -19,23 +22,24 @@
 
 ```
 the-ecom-buddy/
-├── docs/                       # Core Architecture & Engineering Specifications
-│   ├── PRODUCT_REQUIREMENTS.md # Business model, personas & functional requirements
-│   ├── SYSTEM_ARCHITECTURE.md  # Headless topology, Medusa evaluation & deployments
-│   ├── COMMERCE_WORKFLOWS.md   # Inventory locking, cart, checkout & fulfillment state machines
-│   ├── DATABASE_DESIGN.md      # PostgreSQL 16 relational schemas & custom extension tables
-│   ├── SEO_MARKETING_PLAN.md   # Dual-layer Meta CAPI, GA4 & dynamic SEO architecture
-│   ├── DESIGN_SYSTEM_PLAN.md   # Tokens, 6-slide carousel & WCAG 2.1 AA specifications
-│   └── DEVELOPMENT_ROADMAP.md  # 7-phase milestone plan & quality gates
-├── design-references/          # Visual authority screenshots (7 reference screens)
+├── docs/                                # Core Architectural & Engineering Specifications
+│   ├── ARCHITECTURE_REVIEW_CHANGES.md   # Comprehensive audit of review corrections
+│   ├── PRODUCT_REQUIREMENTS.md          # Business model, India-first, 500+ products, NFRs
+│   ├── SYSTEM_ARCHITECTURE.md           # Medusa v2 module ownership, DML extensions, deployment
+│   ├── COMMERCE_WORKFLOWS.md            # Medusa native checkout, reservation & compensation workflows
+│   ├── DATABASE_DESIGN.md               # PostgreSQL schemas, Medusa modules, DML custom models
+│   ├── SEO_MARKETING_PLAN.md            # Dual-layer CAPI, GA4, GMC feed, dynamic SEO & privacy
+│   ├── DESIGN_SYSTEM_PLAN.md            # 7 design references, Tailwind tokens, carousel specs
+│   └── DEVELOPMENT_ROADMAP.md           # 7-phase roadmap, early vertical-slice test, quality gates
+├── design-references/                   # Authoritative visual reference mapping (01 through 07)
 ├── apps/
-│   ├── backend/                # Medusa v2 Commerce Engine, Custom Extensions & Admin UI
-│   └── storefront/             # Next.js 15 App Router Storefront (SSR/ISR)
+│   ├── backend/                         # [Milestone 02] Medusa v2 Engine, Custom Modules & Admin
+│   └── storefront/                      # [Milestone 04] Next.js 15 App Router Storefront
 ├── packages/
-│   ├── types/                  # Shared TypeScript interfaces & validation schemas
-│   ├── ui/                     # Design tokens & shared presentation components
-│   └── config/                 # Shared TypeScript, ESLint & Tailwind configs
-└── deploy/                     # Docker Compose & production deployment orchestration
+│   ├── types/                           # Shared TypeScript interfaces & validation schemas
+│   ├── ui/                              # Shared presentation primitives & Tailwind presets
+│   └── config/                          # Base TypeScript, ESLint & toolchain configs
+└── deploy/                              # [Milestone 03/07] Docker Compose, Caddy auto-TLS & backups
 ```
 
 ---
@@ -44,19 +48,20 @@ the-ecom-buddy/
 
 For complete specifications, consult the comprehensive architectural blueprints in `/docs`:
 
-1. [Product Requirements Document](file:///docs/PRODUCT_REQUIREMENTS.md)
-2. [System Architecture Specification](file:///docs/SYSTEM_ARCHITECTURE.md)
-3. [Commerce Workflows & State Machines](file:///docs/COMMERCE_WORKFLOWS.md)
-4. [Database Design & Schema Specification](file:///docs/DATABASE_DESIGN.md)
-5. [SEO & Marketing Integration Architecture](file:///docs/SEO_MARKETING_PLAN.md)
-6. [Design System & UI Specification Plan](file:///docs/DESIGN_SYSTEM_PLAN.md)
-7. [Engineering Roadmap & Quality Gates](file:///docs/DEVELOPMENT_ROADMAP.md)
+1. [Architecture Review Changes](file:///docs/ARCHITECTURE_REVIEW_CHANGES.md)
+2. [Product Requirements Document](file:///docs/PRODUCT_REQUIREMENTS.md)
+3. [System Architecture Specification](file:///docs/SYSTEM_ARCHITECTURE.md)
+4. [Commerce Workflows & State Machines](file:///docs/COMMERCE_WORKFLOWS.md)
+5. [Database Design & Schema Specification](file:///docs/DATABASE_DESIGN.md)
+6. [SEO & Marketing Integration Architecture](file:///docs/SEO_MARKETING_PLAN.md)
+7. [Design System & UI Specification Plan](file:///docs/DESIGN_SYSTEM_PLAN.md)
+8. [Engineering Roadmap & Quality Gates](file:///docs/DEVELOPMENT_ROADMAP.md)
 
 ---
 
 ## 4. Current Milestone Status
 
-* **Milestone 01 (Step 01)**: Technical Foundations, Architecture & Documentation (**COMPLETED**).
-* **Milestone 02 (Step 02)**: Monorepo Setup, Engine Customization & 500+ Seed Catalog (**AWAITING REVIEW & SIGN-OFF**).
+* **Milestone 01 (Step 01)**: Technical Foundations, Architecture & Documentation (**CORRECTED & PENDING SIGN-OFF**).
+* **Milestone 02 (Step 02)**: Monorepo Setup, Medusa v2 Engine Customization, 500+ Product Seed Generator & Early Vertical-Slice Test (**ON HOLD PENDING APPROVAL**).
 
-*Strict Rule: Do not begin Milestone 02 until Milestone 01 documentation has been formally approved.*
+*Strict Rule: Do not begin Milestone 02 until Milestone 01 revised documentation has been formally approved.*

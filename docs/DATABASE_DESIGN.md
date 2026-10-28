@@ -2,352 +2,177 @@
 
 **Project**: The Ecom Buddy  
 **Document**: Database Design & Schema Specification  
-**Status**: Approved for Architecture Review  
+**Status**: Revised Architecture Specification (Post-Review Revision)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
 ---
 
-## 1. Database Architecture & Engine Overview
+## 1. Database Architecture & Schema Ownership
 
-The persistent data tier for **The Ecom Buddy** is built on **PostgreSQL 16**. PostgreSQL is selected for its robust transactional guarantees (`ACID`), native `JSONB` support for flexible custom attributes, row-level locking primitives (`SELECT ... FOR UPDATE`), and advanced indexing capabilities (GIN for full-text catalog search and JSONB indexing).
+The data tier is powered by **PostgreSQL 16**. Under our architectural philosophy, **Medusa v2 owns and manages all core commerce tables** through its official modules and CLI migrations (`medusa db:migrate`). 
+
+The Ecom Buddy does **not** create manual DDL tables for core commerce entities (products, variants, inventory, carts, orders, or payments). Custom platform requirements are defined using Medusa's official **Data Modeling Layer (DML)** and **Module Links**, which generate and manage database migrations automatically.
 
 ```mermaid
 erDiagram
-    PRODUCT ||--o{ PRODUCT_VARIANT : "has variants"
-    PRODUCT ||--o{ PRODUCT_IMAGE : "has gallery images"
-    PRODUCT_VARIANT ||--o{ INVENTORY_LEVEL : "tracks stock at"
-    PRODUCT_VARIANT ||--o{ MONEY_AMOUNT : "has prices in"
+    MEDUSA_PRODUCT ||--o{ MEDUSA_PRODUCT_VARIANT : "Medusa Product Module"
+    MEDUSA_PRODUCT_VARIANT ||--o{ MEDUSA_INVENTORY_LEVEL : "Medusa Inventory Module"
+    MEDUSA_CART ||--o{ MEDUSA_LINE_ITEM : "Medusa Cart Module"
+    MEDUSA_ORDER ||--o{ MEDUSA_PAYMENT : "Medusa Order & Payment Modules"
     
-    CART ||--o{ CART_LINE_ITEM : "contains items"
-    CART_LINE_ITEM }o--|| PRODUCT_VARIANT : "references"
-    CART ||--o| ADDRESS : "ships to"
-    CART ||--o{ PAYMENT_SESSION : "authorizes via"
-    
-    ORDER ||--o{ ORDER_LINE_ITEM : "contains"
-    ORDER ||--o{ PAYMENT : "paid by"
-    ORDER ||--o{ FULFILLMENT : "shipped by"
-    ORDER }o--|| CUSTOMER : "placed by"
-
-    BUDDY_STORE_SETTINGS ||--o{ BUDDY_CAROUSEL_SLIDE : "manages (max 6)"
-    BUDDY_STORE_SETTINGS ||--|| BUDDY_THEME_CONFIG : "has styling tokens"
-    BUDDY_STORE_SETTINGS ||--|| BUDDY_MARKETING_CONFIG : "has tracking keys"
-    BUDDY_STORE_SETTINGS ||--|| BUDDY_LICENSE : "authenticated by"
+    MEDUSA_PRODUCT ||--o| BUDDY_GST_DETAIL : "Linked via defineLink"
+    BUDDY_STORE_SETTINGS ||--o{ BUDDY_CAROUSEL_SLIDE : "Dynamic Slides (6 Default)"
+    BUDDY_STORE_SETTINGS ||--|| BUDDY_THEME_CONFIG : "Brand Styling Tokens"
+    BUDDY_STORE_SETTINGS ||--|| BUDDY_MARKETING_CONFIG : "Consent & Tracking Keys"
+    BUDDY_STORE_SETTINGS ||--|| BUDDY_LICENSE : "Domain License State"
 ```
 
 ---
 
-## 2. Core Commerce Tables (Medusa v2 Foundation)
+## 2. Core Medusa v2 Modules & Schema Responsibilities
 
-### 2.1 Product & Catalog Entities
+Core commerce schemas are provisioned and upgraded strictly via Medusa v2:
 
-#### `products`
-Stores top-level product records.
-```sql
-CREATE TABLE products (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    subtitle TEXT,
-    description TEXT,
-    handle VARCHAR(255) UNIQUE NOT NULL,
-    status VARCHAR(32) NOT NULL DEFAULT 'draft', -- draft, published, archived
-    thumbnail TEXT,
-    weight NUMERIC(10,2),
-    length NUMERIC(10,2),
-    height NUMERIC(10,2),
-    width NUMERIC(10,2),
-    hs_code VARCHAR(64),
-    origin_country VARCHAR(2),
-    metadata JSONB DEFAULT '{}',
-    search_vector TSVECTOR,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+| Medusa Core Module | Governed Entities | Migration Authority |
+| :--- | :--- | :--- |
+| `@medusajs/medusa/product` | `product`, `product_variant`, `product_option`, `product_option_value`, `product_category`, `product_collection`, `product_tag` | Official Medusa Migrations |
+| `@medusajs/medusa/inventory` | `inventory_item`, `inventory_level`, `reservation_item` | Official Medusa Migrations |
+| `@medusajs/medusa/pricing` | `price_set`, `price_list`, `price` (Multi-currency support: INR default, USD, EUR) | Official Medusa Migrations |
+| `@medusajs/medusa/cart` | `cart`, `line_item`, `address`, `shipping_method` | Official Medusa Migrations |
+| `@medusajs/medusa/order` | `order`, `order_item`, `order_change`, `order_summary` | Official Medusa Migrations |
+| `@medusajs/medusa/payment` | `payment_collection`, `payment_session`, `payment`, `refund` | Official Medusa Migrations |
+| `@medusajs/medusa/tax` | `tax_region`, `tax_rate`, `tax_rate_rule` | Official Medusa Migrations |
 
-CREATE INDEX idx_products_handle ON products(handle);
-CREATE INDEX idx_products_status ON products(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_products_search ON products USING GIN(search_vector);
+---
+
+## 3. The Ecom Buddy Custom DML Modules (`src/modules/*`)
+
+Custom requirements are modeled declaratively using Medusa v2's DML (`model.define`), ensuring complete compatibility with Medusa migrations, service containers, and GraphQL/REST endpoints.
+
+### 3.1 Store Customizer Module: Dynamic Hero Carousel
+
+#### Carousel Slide Model (`src/modules/store-customizer/models/carousel-slide.ts`)
+* **Six Default Configured Slides**: Pre-seeded during initialization to provide an out-of-the-box editorial storefront.
+* **Unconstrained Slide Capacity**: Merchants are **not limited** to six slides. They can add, edit, disable, reorder, and remove slides dynamically. The previous SQL check constraint (`CHECK slot BETWEEN 1 AND 6`) has been completely removed.
+
+```typescript
+import { model } from "@medusajs/framework/utils";
+
+export const CarouselSlide = model.define("carousel_slide", {
+  id: model.id().primaryKey(),
+  is_active: model.boolean().default(true),
+  display_order: model.number().default(1),
+  title: model.text(),
+  subtitle: model.text().nullable(),
+  image_desktop_url: model.text(),
+  image_mobile_url: model.text(),
+  cta_label: model.text().default("Shop Now"),
+  cta_link: model.text().default("/collections/all"),
+  text_alignment: model.enum(["left", "center", "right"]).default("left"),
+  scrim_opacity: model.number().default(0.30),
+});
 ```
 
-#### `product_variants`
-Represents sellable SKUs associated with specific option combinations.
-```sql
-CREATE TABLE product_variants (
-    id VARCHAR(36) PRIMARY KEY,
-    product_id VARCHAR(36) NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    sku VARCHAR(128) UNIQUE NOT NULL,
-    barcode VARCHAR(128),
-    ean VARCHAR(128),
-    upc VARCHAR(128),
-    inventory_quantity INT NOT NULL DEFAULT 0,
-    allow_backorder BOOLEAN NOT NULL DEFAULT FALSE,
-    manage_inventory BOOLEAN NOT NULL DEFAULT TRUE,
-    weight NUMERIC(10,2),
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+#### Theme Configuration Model (`src/modules/store-customizer/models/theme-config.ts`)
+Allows non-technical merchants to modify their visual identity without touching code:
 
-CREATE INDEX idx_variants_product_id ON product_variants(product_id);
-CREATE INDEX idx_variants_sku ON product_variants(sku);
-```
-
-#### `product_options` & `product_option_values`
-Defines variant attributes (e.g., Size, Color, Finish).
-```sql
-CREATE TABLE product_options (
-    id VARCHAR(36) PRIMARY KEY,
-    product_id VARCHAR(36) NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    title VARCHAR(128) NOT NULL, -- e.g., 'Size', 'Color'
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE product_option_values (
-    id VARCHAR(36) PRIMARY KEY,
-    option_id VARCHAR(36) NOT NULL REFERENCES product_options(id) ON DELETE CASCADE,
-    variant_id VARCHAR(36) NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
-    value VARCHAR(128) NOT NULL, -- e.g., 'Medium', 'Navy'
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE UNIQUE INDEX uq_option_variant ON product_option_values(option_id, variant_id);
+```typescript
+export const ThemeConfig = model.define("theme_config", {
+  id: model.id().primaryKey(),
+  brand_name: model.text(),
+  logo_url: model.text().nullable(),
+  favicon_url: model.text().nullable(),
+  primary_color: model.text().default("#18181B"),
+  accent_color: model.text().default("#C28E5C"),
+  surface_color: model.text().default("#FAFAFA"),
+  typography_preset: model.text().default("editorial-serif-sans"),
+  announcement_enabled: model.boolean().default(true),
+  announcement_text: model.text().default("Complimentary express shipping on orders over ₹1,499"),
+  announcement_link: model.text().default("/collections/all"),
+  announcement_bg_color: model.text().default("#18181B"),
+  announcement_text_color: model.text().default("#FFFFFF"),
+});
 ```
 
 ---
 
-### 2.2 Inventory & Stock Reservations
+### 3.2 Marketing & Telemetry Module
 
-#### `inventory_levels` & `inventory_reservations`
-Supports multi-location stock tracking with concurrency locks.
-```sql
-CREATE TABLE inventory_levels (
-    id VARCHAR(36) PRIMARY KEY,
-    variant_id VARCHAR(36) NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
-    location_id VARCHAR(36) NOT NULL,
-    stocked_quantity INT NOT NULL DEFAULT 0,
-    reserved_quantity INT NOT NULL DEFAULT 0,
-    incoming_quantity INT NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_positive_stocked CHECK (stocked_quantity >= 0),
-    CONSTRAINT chk_positive_reserved CHECK (reserved_quantity >= 0)
-);
+#### Marketing Configuration Model (`src/modules/marketing/models/marketing-config.ts`)
+Stores encrypted credentials for Meta and Google tracking. To eliminate previous privacy contradictions, **consent defaults to `'denied'`** until explicit shopper opt-in:
 
-CREATE UNIQUE INDEX uq_variant_location ON inventory_levels(variant_id, location_id);
-
-CREATE TABLE inventory_reservations (
-    id VARCHAR(36) PRIMARY KEY,
-    cart_id VARCHAR(36) NOT NULL,
-    variant_id VARCHAR(36) NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
-    location_id VARCHAR(36) NOT NULL,
-    quantity INT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_reservations_expiry ON inventory_reservations(expires_at);
-CREATE INDEX idx_reservations_cart ON inventory_reservations(cart_id);
+```typescript
+export const MarketingConfig = model.define("marketing_config", {
+  id: model.id().primaryKey(),
+  meta_pixel_id: model.text().nullable(),
+  meta_capi_token: model.text().nullable(), // Encrypted at rest (AES-256)
+  meta_test_event_code: model.text().nullable(),
+  ga_measurement_id: model.text().nullable(),
+  ga_api_secret: model.text().nullable(), // Encrypted at rest (AES-256)
+  gtm_container_id: model.text().nullable(),
+  is_meta_enabled: model.boolean().default(false),
+  is_ga_enabled: model.boolean().default(false),
+  is_gtm_enabled: model.boolean().default(false),
+  default_consent_mode: model.enum(["denied", "granted"]).default("denied"), // Privacy-first default
+});
 ```
 
 ---
 
-### 2.3 Cart & Checkout Entities
+### 3.3 India-First GST & Tax Module Extension
 
-#### `carts` & `cart_line_items`
-```sql
-CREATE TABLE carts (
-    id VARCHAR(36) PRIMARY KEY,
-    customer_id VARCHAR(36),
-    email VARCHAR(255),
-    billing_address_id VARCHAR(36),
-    shipping_address_id VARCHAR(36),
-    region_id VARCHAR(36) NOT NULL,
-    currency_code VARCHAR(3) NOT NULL DEFAULT 'USD',
-    subtotal INT NOT NULL DEFAULT 0, -- Stored in smallest currency unit (cents)
-    discount_total INT NOT NULL DEFAULT 0,
-    shipping_total INT NOT NULL DEFAULT 0,
-    tax_total INT NOT NULL DEFAULT 0,
-    total INT NOT NULL DEFAULT 0,
-    coupon_code VARCHAR(64),
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+#### GST Product Details Model (`src/modules/india-tax/models/gst-product-detail.ts`)
+Links HSN codes and GST rates to Medusa's core `Product` model via official module links:
 
-CREATE TABLE cart_line_items (
-    id VARCHAR(36) PRIMARY KEY,
-    cart_id VARCHAR(36) NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
-    variant_id VARCHAR(36) NOT NULL REFERENCES product_variants(id),
-    title VARCHAR(255) NOT NULL,
-    thumbnail TEXT,
-    unit_price INT NOT NULL, -- Snapshotted unit price
-    quantity INT NOT NULL,
-    tax_rate NUMERIC(6,4) NOT NULL DEFAULT 0.0000,
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_line_items_cart ON cart_line_items(cart_id);
+```typescript
+export const GstProductDetail = model.define("gst_product_detail", {
+  id: model.id().primaryKey(),
+  hsn_code: model.text(), // e.g., '6205'
+  gst_rate: model.number().default(12.00), // GST percentage (e.g., 5%, 12%, 18%, 28%)
+  tax_inclusive: model.boolean().default(true),
+});
 ```
 
----
+#### Module Link Definition (`src/links/product-gst.ts`)
+```typescript
+import { defineLink } from "@medusajs/framework/utils";
+import ProductModule from "@medusajs/medusa/product";
+import IndiaTaxModule from "../modules/india-tax";
 
-### 2.4 Order & Transaction Entities
-
-#### `orders` & `order_line_items`
-```sql
-CREATE TABLE orders (
-    id VARCHAR(36) PRIMARY KEY,
-    display_id SERIAL, -- Human-readable Order # (e.g., 1001)
-    status VARCHAR(32) NOT NULL DEFAULT 'pending', -- pending, completed, archived, cancelled
-    fulfillment_status VARCHAR(32) NOT NULL DEFAULT 'not_fulfilled', -- not_fulfilled, partially_fulfilled, fulfilled, returned
-    payment_status VARCHAR(32) NOT NULL DEFAULT 'awaiting', -- awaiting, captured, refunded, partially_refunded
-    customer_id VARCHAR(36) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    currency_code VARCHAR(3) NOT NULL,
-    total INT NOT NULL,
-    subtotal INT NOT NULL,
-    tax_total INT NOT NULL,
-    shipping_total INT NOT NULL,
-    discount_total INT NOT NULL,
-    idempotency_key VARCHAR(128) UNIQUE,
-    canceled_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_orders_customer ON orders(customer_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_orders_display_id ON orders(display_id);
-```
-
----
-
-## 3. The Ecom Buddy Custom Extension Tables
-
-These tables are managed under the `@ecom-buddy/module-core` extension schema to isolate platform customizations from upstream commerce engine updates.
-
-### 3.1 Storefront Customization: The 6-Slide Carousel
-
-#### `buddy_carousel_slides`
-Enforces the mandatory 6-slide homepage carousel with desktop and mobile asset pairing.
-```sql
-CREATE TABLE buddy_carousel_slides (
-    id VARCHAR(36) PRIMARY KEY,
-    slot_number INT NOT NULL CHECK (slot_number BETWEEN 1 AND 6),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    title VARCHAR(255) NOT NULL,
-    subtitle TEXT,
-    image_desktop_url TEXT NOT NULL,
-    image_mobile_url TEXT NOT NULL,
-    cta_label VARCHAR(64) NOT NULL DEFAULT 'Shop Now',
-    cta_link VARCHAR(255) NOT NULL DEFAULT '/collections/all',
-    text_alignment VARCHAR(16) NOT NULL DEFAULT 'left', -- 'left', 'center', 'right'
-    scrim_opacity NUMERIC(3,2) NOT NULL DEFAULT 0.30, -- Contrast overlay 0.00 to 1.00
-    display_order INT NOT NULL DEFAULT 1,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_carousel_slot UNIQUE (slot_number)
-);
-
-CREATE INDEX idx_carousel_active_order ON buddy_carousel_slides(is_active, display_order);
-```
-
----
-
-### 3.2 Visual Branding & Design Tokens
-
-#### `buddy_theme_config`
-Allows non-technical merchants to customize their storefront colors, typography, and announcement bar without editing CSS files.
-```sql
-CREATE TABLE buddy_theme_config (
-    id VARCHAR(36) PRIMARY KEY,
-    brand_name VARCHAR(128) NOT NULL,
-    logo_url TEXT,
-    favicon_url TEXT,
-    primary_color VARCHAR(10) NOT NULL DEFAULT '#18181B', -- Hex color
-    accent_color VARCHAR(10) NOT NULL DEFAULT '#D97706',  -- Warm editorial accent
-    surface_color VARCHAR(10) NOT NULL DEFAULT '#FAFAFA', -- Surface background
-    typography_preset VARCHAR(64) NOT NULL DEFAULT 'editorial-serif-sans', -- Preset pairing
-    announcement_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    announcement_text VARCHAR(255) DEFAULT 'Complimentary domestic express shipping on orders over $150',
-    announcement_link VARCHAR(255) DEFAULT '/collections/new-arrivals',
-    announcement_bg_color VARCHAR(10) NOT NULL DEFAULT '#18181B',
-    announcement_text_color VARCHAR(10) NOT NULL DEFAULT '#FFFFFF',
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+export default defineLink(
+  ProductModule.linkable.product,
+  IndiaTaxModule.linkable.gstProductDetail
 );
 ```
 
 ---
 
-### 3.3 Marketing & Telemetry Integration
+### 3.4 Software Licensing & White-Label Module
 
-#### `buddy_marketing_config`
-Secures all credentials required for Meta Pixel, Meta Conversions API (CAPI), Google Analytics 4, and Google Tag Manager.
-```sql
-CREATE TABLE buddy_marketing_config (
-    id VARCHAR(36) PRIMARY KEY,
-    meta_pixel_id VARCHAR(64),
-    meta_capi_token TEXT, -- Server-side access token (AES encrypted)
-    meta_test_event_code VARCHAR(64), -- For Meta Realtime Events Testing
-    ga_measurement_id VARCHAR(64), -- e.g., 'G-XXXXXXXXXX'
-    ga_api_secret TEXT, -- Measurement Protocol API secret (AES encrypted)
-    gtm_container_id VARCHAR(64), -- e.g., 'GTM-XXXXXXX'
-    is_meta_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    is_ga_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    is_gtm_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    consent_mode_default VARCHAR(16) NOT NULL DEFAULT 'granted', -- 'denied' or 'granted'
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+#### License Record Model (`src/modules/licensing/models/license-record.ts`)
+```typescript
+export const LicenseRecord = model.define("license_record", {
+  id: model.id().primaryKey(),
+  license_key: model.text().unique(),
+  client_name: model.text(),
+  authorized_domain: model.text(),
+  digital_signature: model.text(), // Ed25519 cryptographic signature
+  activated_at: model.dateTime(),
+  last_verified_at: model.dateTime(),
+  license_status: model.enum(["active", "invalid", "suspended"]).default("active"),
+  edition: model.text().default("commercial_lifetime"),
+  white_label_enabled: model.boolean().default(true),
+});
 ```
 
 ---
 
-### 3.4 Software Licensing & White-Label Activation
+## 4. Catalog Scalability & Query Performance (500+ Products)
 
-#### `buddy_license`
-Validates the one-time software license for independent deployments without relying on a central SaaS kill-switch.
-```sql
-CREATE TABLE buddy_license (
-    id VARCHAR(36) PRIMARY KEY,
-    license_key VARCHAR(128) UNIQUE NOT NULL,
-    client_name VARCHAR(255) NOT NULL,
-    authorized_domain VARCHAR(255) NOT NULL,
-    digital_signature TEXT NOT NULL, -- Ed25519 signature
-    activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    license_status VARCHAR(32) NOT NULL DEFAULT 'active', -- active, invalid, suspended
-    edition VARCHAR(32) NOT NULL DEFAULT 'commercial_lifetime',
-    white_label_enabled BOOLEAN NOT NULL DEFAULT TRUE
-);
-```
+To ensure sub-100ms response times across 500+ distinct products (and 1,500–4,000+ SKUs):
 
----
-
-## 4. Indexing & Concurrency Controls
-
-### 4.1 Full-Text Catalog Search
-To support instant product searches across 500+ SKUs with zero external dependencies (no Elasticsearch required):
-```sql
--- Trigger to maintain search_vector automatically on title/description change
-CREATE OR REPLACE FUNCTION products_search_vector_trigger() RETURNS trigger AS $$
-BEGIN
-    NEW.search_vector :=
-        setweight(to_tsvector('english', coalesce(NEW.title, '')), 'A') ||
-        setweight(to_tsvector('english', coalesce(NEW.subtitle, '')), 'B') ||
-        setweight(to_tsvector('english', coalesce(NEW.description, '')), 'C');
-    RETURN NEW;
-END
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_products_search_update
-    BEFORE INSERT OR UPDATE ON products
-    FOR EACH ROW EXECUTE FUNCTION products_search_vector_trigger();
-```
-
-### 4.2 Concurrency & Transaction Isolation
-* All inventory reservation queries use `SELECT ... FOR UPDATE` inside `READ COMMITTED` transactions to guarantee serialization on individual SKU stock levels.
-* Deadlock prevention is guaranteed by sorting requested variant IDs alphabetically before acquiring locks in batch checkout transactions.
+### 4.1 Indexing Strategy
+* **Covering Compound Indexes**: Medusa's database migrations maintain B-tree compound indexes on `(product_id, deleted_at)` and `(sku, deleted_at)`.
+* **Full-Text Search Indexing**: PostgreSQL `tsvector` indexes on product title, handle, subtitle, and tags ensure instant search and filtering without external search engine overhead.
+* **Pagination & Memory Safeguards**: All catalog queries from Next.js 15 utilize cursor-based or limit/offset pagination (default 24 products per page) to prevent excessive memory consumption during high-traffic browsing.

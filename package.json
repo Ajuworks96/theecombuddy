@@ -1,0 +1,21 @@
+{
+  "name": "the-ecom-buddy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "White-label production e-commerce and growth platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "echo \"Run specific workspace dev scripts in Milestone 02\"",
+    "build": "echo \"Run specific workspace build scripts in Milestone 02\"",
+    "test": "echo \"Run test suite in Milestone 02\""
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "author": "The Ecom Buddy",
+  "license": "UNLICENSED"
+}

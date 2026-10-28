@@ -1,6 +1,8 @@
-import { loadEnv, defineConfig } from "@medusajs/framework/utils";
+import { loadEnv, defineConfig, Modules } from "@medusajs/framework/utils";
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd());
+
+const isRedisConfigured = Boolean(process.env.REDIS_URL);
 
 export default defineConfig({
   projectConfig: {
@@ -14,4 +16,28 @@ export default defineConfig({
       cookieSecret: process.env.COOKIE_SECRET || "supersecret_ecom_buddy_cookie_token_development_only",
     },
   },
+  modules: isRedisConfigured
+    ? {
+        [Modules.EVENT_BUS]: {
+          resolve: "@medusajs/medusa/event-bus-redis",
+          options: {
+            redisUrl: process.env.REDIS_URL,
+          },
+        },
+        [Modules.WORKFLOW_ENGINE]: {
+          resolve: "@medusajs/medusa/workflow-engine-redis",
+          options: {
+            redis: {
+              redisUrl: process.env.REDIS_URL,
+            },
+          },
+        },
+        [Modules.CACHE]: {
+          resolve: "@medusajs/medusa/cache-redis",
+          options: {
+            redisUrl: process.env.REDIS_URL,
+          },
+        },
+      }
+    : {},
 });

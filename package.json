@@ -11,6 +11,9 @@
     "db:start": "node deploy/scripts/local-db.js start",
     "db:stop": "node deploy/scripts/local-db.js stop",
     "db:status": "node deploy/scripts/local-db.js status",
+    "redis:start": "node deploy/scripts/local-redis.js start",
+    "redis:stop": "node deploy/scripts/local-redis.js stop",
+    "redis:status": "node deploy/scripts/local-redis.js status",
     "db:migrate": "npm run db:migrate --workspace=@the-ecom-buddy/backend",
     "dev:backend": "npm run dev --workspace=@the-ecom-buddy/backend",
     "dev:storefront": "npm run dev --workspace=@the-ecom-buddy/storefront",
@@ -21,6 +24,7 @@
   },
   "devDependencies": {
     "embedded-postgres": "^18.4.0-beta.17",
+    "redis-memory-server": "^0.17.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2"
   },

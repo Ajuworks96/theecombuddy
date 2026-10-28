@@ -2,7 +2,7 @@
 
 **Project**: The Ecom Buddy  
 **Document**: Product Requirements Document (PRD)  
-**Status**: Revised Architecture Specification (Post-Review Revision)  
+**Status**: Revised Architecture Specification (Final Step 01 Technical Corrections)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
@@ -85,11 +85,13 @@ The platform is designed with an **India-first baseline configuration** while pr
 * Structured address fields: Flat/House No., Street/Area, Landmark, City/District, State/Union Territory dropdown (all 28 states and 8 union territories).
 * Logistics aggregator readiness: Schema and event webhooks aligned with Indian logistics providers (Shiprocket, Delhivery, BlueDart).
 
-### 4.4 Goods and Services Tax (GST) & Invoicing
-* **HSN Code Support**: Harmonized System of Nomenclature (HSN) codes attached to each product.
-* **Split GST Calculation Engine**:
-  * **Intra-State Transactions** (Merchant State = Customer Shipping State): Equal split into **CGST** (Central GST) and **SGST** (State GST).
-  * **Inter-State Transactions** (Merchant State $\ne$ Customer Shipping State): Single **IGST** (Integrated GST) assessment.
+### 4.4 Goods and Services Tax (GST) & Place of Supply Rules
+* **HSN Code Support**: Harmonized System of Nomenclature (HSN) codes attached to each product via the `gst_product_detail` model (managed by the `india-tax` module).
+* **Section 10 IGST Act Place of Supply Engine**:
+  * **Supplier Location**: State of the merchant dispatch location/fulfillment warehouse.
+  * **Place of Supply**: State where delivery terminates for the customer.
+  * **Intra-State Transactions** (Supplier State = Place of Supply State): Equal split into **CGST** and **SGST**.
+  * **Inter-State Transactions** (Supplier State $\ne$ Place of Supply State): Single **IGST** assessment.
 * **B2B Checkout Capability**: Optional input for customer business name and 15-character **GSTIN** with tax-compliant invoice generation.
 * **Tax-Inclusive Pricing**: Clear display on storefront product cards (e.g., *"Inclusive of all taxes"*).
 
@@ -101,18 +103,11 @@ The platform is designed with an **India-first baseline configuration** while pr
 * **Configurable Homepage Hero Carousel**:
   * **Six default pre-configured slides** are supplied out of the box with high-quality copy, desktop/mobile responsive crops, and call-to-action buttons.
   * **Dynamic Slide Management**: Merchants are **not limited** to six slides. The merchant admin allows merchants to add, edit, disable, reorder, and remove slides dynamically.
-  * Per-slide controls:
-    * Active / Inactive toggle.
-    * Drag-and-drop display ordering.
-    * Desktop banner image asset (16:9 / 21:9 responsive ratio).
-    * Mobile banner image asset (4:5 / 1:1 portrait ratio).
-    * Editorial headline and kicker/subtitle.
-    * CTA button label (e.g., *"Explore Collection"*) and destination URL.
-    * Text alignment (Left, Center, Right) and contrast scrim opacity.
+  * Managed via the `store-customizer` module (`carousel_slide` table).
 * **Brand Styling Customizer**:
   * Brand logo, mobile logo, and browser favicon.
   * Primary brand color, accent tone, and surface background tokens.
-  * Typography preset selector (pairing editorial display serifs with crisp, legible sans-serif body type).
+  * Managed via the `store-customizer` module (`theme_config` table).
   * Dismissible announcement bar with customizable text, link, and background tone.
 
 ### 5.2 Shopping Cart & Frictionless Checkout
@@ -125,31 +120,30 @@ The platform is designed with an **India-first baseline configuration** while pr
   * Guest checkout by default; optional 1-click customer account creation.
   * Progression: Contact $\rightarrow$ Delivery Address $\rightarrow$ Shipping Method $\rightarrow$ Payment.
   * Address validation with PIN code auto-fill for city and state.
-  * Discount code validation engine supporting percentage, fixed amount, and free shipping promotions.
+  * Handled via Medusa's `completeCartWorkflow`, contextually managing `order` successes, `requires_action` 3DS challenges, and structured validation errors.
 
 ### 5.3 Order & Fulfillment Management
-* Order lifecycle state transitions managed via official Medusa v2 workflows.
-* Split fulfillment and tracking number assignment with automated customer notification.
+* Order placement creates inventory reservations; fulfillment consumes physical stock and releases reservations.
+* Cancellation releases active reservations prior to fulfillment.
+* Split/partial fulfillment and tracking number assignment with automated customer notification.
 * Automated printable PDF invoices (with GST breakdown) and packing slips.
-* Return and refund handling with automated inventory restock options.
 
 ### 5.4 Marketing, Analytics & Telemetry
+* Managed via the `marketing-telemetry` module (`marketing_config` table).
 * **Dual-Layer Meta Tracking**: Browser-side Meta Pixel paired with server-side Meta Conversions API (CAPI), synchronized by a unique, stable `event_id` per logical interaction.
 * **Google Analytics 4 & Tag Manager**: Standard GA4 client dataLayer events backed by server-side Measurement Protocol validation for order completion.
-* **Consent-Gated Telemetry**: Strict regional privacy enforcement (Google Consent Mode v2); no tracking tags or PII transmission fire without explicit shopper consent.
+* **Consent-Gated Telemetry**: Default consent is strictly `denied` (Google Consent Mode v2); no tracking tags or PII transmission fire without explicit shopper consent.
 
 ---
 
 ## 6. Measurable Non-Functional Targets & Validation
-
-Rather than relying on unverified generic claims, non-functional performance is governed by measurable engineering targets and concrete validation methodologies:
 
 | Domain | Target Specification | Validation Methodology |
 | :--- | :--- | :--- |
 | **Server Response Time** | p95 TTFB $\le 300\text{ ms}$ on dynamic SSR; p95 $\le 80\text{ ms}$ on cached static assets. | Load testing via **k6** / **Artillery** simulating 50 concurrent active shopper sessions on standard 4GB VPS. |
 | **Catalog Performance** | Sub-100ms query execution across 500+ products (2,500+ SKUs) with faceted filtering. | PostgreSQL `EXPLAIN ANALYZE` benchmarks on indexed search vectors and variant tables. |
 | **Frontend Quality** | Google Lighthouse score $\ge 90$ across Performance, Accessibility, Best Practices, and SEO on mobile viewports. | Automated **Lighthouse CI** running on emulated mobile network profiles. |
-| **Payment Security** | PCI-DSS SAQ-A qualification; zero customer card data (PAN, CVV) touches merchant servers. | Architectural verification: all payment fields hosted inside Stripe Elements / Razorpay Checkout iframes; validated via annual SAQ-A assessment. |
+| **Payment Security** | Target PCI-DSS SAQ-A qualification; card data captured via hosted iframes (Razorpay / Stripe Elements). | Documented architecture requires merchant independent audit/evaluation via annual SAQ-A Self-Assessment Questionnaire. |
 | **Data Protection** | TLS 1.3 enforced, HSTS enabled, AES-256 encryption at rest for marketing API secrets. | Automated Qualys SSL Labs scan (Target Grade A+) and static security code analysis. |
 | **Service Availability** | Docker container auto-restart policies (`restart: unless-stopped`) with health checks. | Automated integration health checks monitoring `/health` endpoints on backend and storefront. |
 
@@ -157,7 +151,7 @@ Rather than relying on unverified generic claims, non-functional performance is 
 
 ## 7. Merchant Usability & Interface Principles
 
-1. **Jargon-Free Vocabulary**: The admin speaks the language of a merchant (e.g., *"Store Colors"* instead of *"CSS Variables"*; *"Inventory by Size"* instead of *"Variant Matrix Dimensions"*).
+1. **Jargon-Free Vocabulary**: The admin speaks the language of a merchant (e.g., *"Store Colors"* instead of *"CSS Variables"*).
 2. **Zero-Code Operation**: Managing carousel slides, setting up Razorpay keys, creating GST invoices, and modifying SEO titles never requires editing configuration files or writing code.
 3. **Guardrails & Confirmation**: Destructive actions (cancelling paid orders, archiving catalog items) require unambiguous confirmation dialogs.
 4. **Instant Polish on Day One**: The initial deployment delivers six pre-configured production carousel slides, sensible default shipping zones, and pre-seeded tax templates so the store is launch-ready within hours.

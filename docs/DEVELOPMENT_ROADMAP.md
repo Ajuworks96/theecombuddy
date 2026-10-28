@@ -2,7 +2,7 @@
 
 **Project**: The Ecom Buddy  
 **Document**: Development Roadmap & Quality Gates  
-**Status**: Revised Architecture Specification (Post-Review Revision)  
+**Status**: Revised Architecture Specification (Final Step 01 Technical Corrections)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
@@ -10,18 +10,18 @@
 
 ## 1. Phased Execution Overview
 
-The engineering execution plan is partitioned into **seven sequential milestones**. The revised roadmap incorporates three critical architectural enhancements:
-1. **Early Vertical-Slice Testing** in Milestone 02: Testing `product -> variant -> inventory -> cart -> checkout -> order` directly through Medusa v2 workflows before building frontend UI.
-2. **Early Deployment Validation** in Milestone 03: Testing Docker Compose builds and database persistence early rather than discovering environment issues at the end.
+The engineering execution plan is partitioned into **seven sequential milestones**, incorporating:
+1. **Early Vertical-Slice Testing** in Milestone 02: Testing `Product -> Variant -> Inventory -> Cart -> Order (Reservation) -> Fulfillment (Stock Deduction) -> Cancellation` directly through Medusa v2 workflows.
+2. **Early Deployment Validation** in Milestone 03: Testing Docker Compose builds and database persistence early.
 3. **Foundational SEO during Storefront Build** in Milestone 04: Integrating metadata, canonicals, and structured data alongside Next.js 15 UI implementation.
 
 ```mermaid
 flowchart TD
-    M1["Milestone 01: Architecture & Technical Specifications\n(CURRENT — REVISED & PENDING SIGN-OFF)"]
-    M2["Milestone 02: Medusa v2 Setup, 500+ Product Seed & Early Vertical Slice\n(Early Integration: Product -> Variant -> Inventory -> Cart -> Checkout -> Order)"]
+    M1["Milestone 01: Architecture & Technical Specifications\n(CURRENT — FINAL REVISION PENDING APPROVAL)"]
+    M2["Milestone 02: Medusa v2 Setup, 500+ Seed & Early Vertical-Slice Test\n(Order Placement -> Reservations -> Fulfillment -> Stock Deduction)"]
     M3["Milestone 03: Merchant Admin, Customizer & Early Deployment Check\n(Onboarding, Carousel Manager, ColorPixel Admin, Docker Validation)"]
     M4["Milestone 04: Next.js 15 Storefront + Foundational SEO\n(Crescendo, Velora, Aero Step, Philox + Metadata, Canonicals, Schema)"]
-    M5["Milestone 05: India-First Commerce, Razorpay, COD & GST Engine\n(UPI, Netbanking, COD with Pin Code Check, CGST/SGST/IGST, Idempotency)"]
+    M5["Milestone 05: India-First Commerce, Razorpay, COD & GST Engine\n(UPI, Netbanking, COD with Pin Code Check, Section 10 IGST Rules)"]
     M6["Milestone 06: Growth, Telemetry & Feed Automation\n(Meta Pixel+CAPI Deduplication, GA4 MP Reconciliation, GMC Feed)"]
     M7["Milestone 07: Licensing, Turnkey Packaging & Load Validation\n(One-Click Docker Compose, Automated Backups, k6 Load Benchmarks)"]
 
@@ -46,7 +46,7 @@ flowchart TD
 ## 2. Detailed Milestone Specifications
 
 ### Milestone 01: Architecture Foundations & Technical Specifications (Current)
-* **Scope**: Complete revision of all seven architecture specifications in `/docs` addressing all review criteria (Medusa data ownership, India-first setup, unconstrained dynamic carousel, consent-gated telemetry, measurable NFR targets, authoritative design reference mapping).
+* **Scope**: Complete revision of all architecture specifications in `/docs` addressing all review criteria (Medusa official inventory lifecycle, Complete Cart API response handling, migration workflow, standardized module names, Google Search Central SEO compliance, Place of Supply GST rules, independent PCI verification).
 * **Deliverable**: `docs/ARCHITECTURE_REVIEW_CHANGES.md` and updated specifications.
 * **Quality Gate**: Architecture review sign-off. Zero UI code generated.
 
@@ -57,11 +57,16 @@ flowchart TD
 * **Scope**:
   * Initialize monorepo workspace (`apps/backend`, `apps/storefront`, `packages/*`).
   * Initialize Medusa v2 core engine with PostgreSQL 16 and Redis 7.
-  * Implement `@ecom-buddy/module-core` custom DML modules (`carousel_slide`, `theme_config`, `marketing_config`, `gst_product_detail`).
+  * Implement standardized custom DML modules:
+    * `store-customizer` (`carousel_slide`, `theme_config`)
+    * `marketing-telemetry` (`marketing_config`)
+    * `india-tax` (`gst_product_detail` linked to `product`)
+    * `licensing` (`license_record`)
+  * Execute migration workflow: `medusa db:generate <module>`, `medusa db:migrate`, and rollback test.
   * **Automated Seed Generator**: Generates at least **500 distinct products** with multi-attribute variants (yielding 1,500–4,000+ SKUs), realistic INR pricing (`₹`), HSN codes, categories, and image galleries.
   * **Early Vertical-Slice Integration Test**: An automated end-to-end integration test executing:
-    $$\text{Create Product} \rightarrow \text{Generate Variants} \rightarrow \text{Set Inventory} \rightarrow \text{Add to Cart} \rightarrow \text{Reserve Stock} \rightarrow \text{Authorize Payment} \rightarrow \text{Create Order}$$
-    Testing built-in Medusa workflow compensations on payment failure.
+    $$\text{Create Product} \rightarrow \text{Set Stock} \rightarrow \text{Add to Cart} \rightarrow \text{Place Order (Creates Reservations)} \rightarrow \text{Fulfill (Consumes Stock \& Releases Reservations)}$$
+    and testing cancellation (releases unfulfilled reservations) and payment failure compensation.
 * **Quality Gate**: Vertical slice test passes 100%; seed generator populates 500+ products cleanly; database query benchmarks execute under 100ms.
 
 ---
@@ -89,8 +94,8 @@ flowchart TD
   * **Foundational SEO Architecture**:
     * Dynamic metadata generation (`generateMetadata`) across products, categories, and static pages.
     * Strict canonical URL enforcement and filter/sort handling.
-    * Schema.org JSON-LD structured data (`Product`, `Offer`, `BreadcrumbList`).
-    * Dynamic `robots.txt` and XML sitemaps (`/sitemap.xml`).
+    * Schema.org JSON-LD structured data (`Product`, `Offer`, `BreadcrumbList`, `Organization`, `WebSite`).
+    * Dynamic `robots.txt` and XML sitemaps (`/sitemap.xml` using `<loc>` and `<lastmod>`).
 * **Quality Gate**: Mobile & Desktop Google Lighthouse score $\ge 90$; visual fidelity aligned with reference screenshots.
 
 ---
@@ -101,7 +106,7 @@ flowchart TD
   * Frictionless one-page checkout with Indian PIN code auto-fill for city/state.
   * Razorpay payment gateway integration (UPI Intent/QR, Netbanking, Cards).
   * Cash on Delivery (COD) engine with PIN code availability check and optional fee.
-  * Indian GST calculation engine (CGST+SGST vs. IGST split based on merchant and customer state).
+  * Indian GST calculation engine based on Section 10 IGST Act Place of Supply rules (dispatch location vs. place of supply).
   * B2B GSTIN collection and one-click GST-compliant tax invoice PDF generation.
   * Webhook idempotency and payment reconciliation workflows.
 * **Quality Gate**: Automated test suite executing successful UPI/Card/COD orders, verifying correct GST split and inventory deduction.

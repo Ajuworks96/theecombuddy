@@ -2,7 +2,7 @@
 
 **Project**: The Ecom Buddy  
 **Document**: System Architecture Specification  
-**Status**: Revised Architecture Specification (Post-Review Revision)  
+**Status**: Revised Architecture Specification (Final Step 01 Technical Corrections)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
@@ -13,7 +13,7 @@
 The Ecom Buddy architecture is built upon four fundamental principles:
 
 1. **Strict Data & Engine Integrity**: We strictly adhere to **Medusa v2**'s official modular architecture. We do **not** manually create, alter, or replace Medusa's core database tables. All core commerce domain models (products, variants, inventory, carts, orders, pricing, taxes) are owned and migrated solely by Medusa's official modules.
-2. **Supported Extension Mechanisms**: Custom business requirements (dynamic carousel slides, brand styling tokens, marketing credentials, India-specific GST/HSN attributes, and licensing verification) are encapsulated within **officially registered Medusa v2 custom modules** utilizing Medusa's Data Modeling Layer (DML) and module links (`defineLink`).
+2. **Supported Extension Mechanisms & Migration Workflow**: Custom business requirements (dynamic carousel slides, brand styling tokens, marketing credentials, India-specific GST/HSN attributes, and licensing verification) are encapsulated within **officially registered Medusa v2 custom modules** utilizing Medusa's Data Modeling Layer (DML) and module links (`defineLink`). Database migrations for custom modules are generated via `medusa db:generate` and executed via `medusa db:migrate`.
 3. **Decoupled Headless Experience**: The merchant-facing storefront is completely separated from the commerce backend, powered by **Next.js 15 (App Router)** utilizing React Server Components (RSC) and on-demand Incremental Static Regeneration (ISR).
 4. **Operational Simplicity for Independent Client Deployments**: Each merchant client receives an isolated deployment stack orchestratable via **Docker Compose** with automated SSL termination (Caddy) and persistent PostgreSQL 16 and Redis 7 volumes.
 
@@ -33,7 +33,7 @@ flowchart TB
         
         subgraph Medusa_v2_Backend ["Medusa v2 Headless Backend Engine"]
             CoreModules["Official Medusa v2 Commerce Modules\n(Product, Inventory, Cart, Order, Payment, Tax)"]
-            CustomModules["The Ecom Buddy Custom Modules\n(Storefront Customizer, Marketing Telemetry, Licensing)"]
+            CustomModules["The Ecom Buddy Standardized Modules\n(store-customizer, marketing-telemetry, india-tax, licensing)"]
             Workflows["Medusa Workflows Engine\n(Durable Execution with Built-in Compensation)"]
             EmbeddedAdmin["Embedded Medusa Admin\n(Vite App served directly on API process)"]
         end
@@ -76,10 +76,10 @@ flowchart TB
 
 ---
 
-## 2. Medusa v2 Data Ownership & Modular Architecture
+## 2. Medusa v2 Data Ownership & Standardized Custom Modules
 
 ### 2.1 Core Commerce Data Ownership
-All core commerce tables are owned and managed exclusively by Medusa v2's official modules. Under no circumstances does The Ecom Buddy run manual SQL DDL to create or alter these tables.
+All core commerce tables are owned and managed exclusively by Medusa v2's official modules. Under no circumstances does The Ecom Buddy run manual SQL DDL to create or alter these tables:
 
 * **Product Module (`@medusajs/medusa/product`)**: Owns `product`, `product_variant`, `product_option`, `product_option_value`, `product_category`, `product_collection`, `product_tag`, `product_image`.
 * **Inventory Module (`@medusajs/medusa/inventory`)**: Owns `inventory_item`, `inventory_level`, `reservation_item`.
@@ -93,140 +93,89 @@ All core commerce tables are owned and managed exclusively by Medusa v2's offici
 * **Customer Module (`@medusajs/medusa/customer`)**: Owns `customer`, `customer_address`, `customer_group`.
 * **Promotion Module (`@medusajs/medusa/promotion`)**: Owns `promotion`, `campaign`, `promotion_rule`.
 
-### 2.2 Custom Extension Modules (The Ecom Buddy Modules)
-Custom requirements are implemented as registered custom modules using Medusa's **Data Modeling Layer (DML)** (`model.define`):
+### 2.2 Standardized Custom Modules Naming & Data Ownership
+To eliminate naming mismatches across documentation and code, all custom modules, models, and database tables are standardized according to the following strict registry:
 
-1. **`@ecom-buddy/store-customizer` Module**:
-   * Owns `carousel_slide`: Dynamic homepage carousel slides (pre-seeded with 6 default slides, fully dynamic add/edit/reorder).
-   * Owns `theme_settings`: Merchant branding tokens (colors, typography presets, announcement bar).
-2. **`@ecom-buddy/marketing-telemetry` Module**:
-   * Owns `marketing_credentials`: Encrypted storage for Meta Pixel ID, Meta CAPI System User Token, GA4 Measurement ID, Measurement Protocol Secret, and GTM Container ID.
-   * Manages default privacy and region-aware consent gating.
-3. **`@ecom-buddy/licensing` Module**:
-   * Owns `license_record`: Cryptographic signature verification for domain-bound one-time software licenses.
-4. **India GST Extension via Module Links**:
-   * Using Medusa's official `defineLink`, we link product models to custom GST attributes:
-     ```typescript
-     import { defineLink } from "@medusajs/framework/utils";
-     import ProductModule from "@medusajs/medusa/product";
-     import IndiaTaxModule from "./modules/india-tax";
+| Module Identifier | Directory Path | DML Models | Table Names | Functional Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| **`store-customizer`** | `src/modules/store-customizer` | `CarouselSlide`<br>`ThemeConfig` | `carousel_slide`<br>`theme_config` | Homepage hero carousel slides (dynamic capacity, 6 default slides) and merchant branding tokens (colors, typography, announcement bar). |
+| **`marketing-telemetry`** | `src/modules/marketing-telemetry` | `MarketingConfig` | `marketing_config` | Encrypted storage for Meta Pixel ID, Meta CAPI token, GA4 Measurement ID, MP secret, GTM ID, and consent mode default (`denied`). |
+| **`india-tax`** | `src/modules/india-tax` | `GstProductDetail` | `gst_product_detail` | Indian HSN codes, GST rates, and tax-inclusive flags linked to products via `defineLink`. |
+| **`licensing`** | `src/modules/licensing` | `LicenseRecord` | `license_record` | Cryptographic signature verification for domain-bound one-time software licenses. |
 
-     export default defineLink(
-       ProductModule.linkable.product,
-       IndiaTaxModule.linkable.gstProductDetail
-     );
-     ```
-
-### 2.3 Corrected Data Ownership Matrix
-
-| Data Domain | Responsible Module | Extension Mechanism | DB Management |
-| :--- | :--- | :--- | :--- |
-| **Catalog (500+ Products & SKUs)** | Medusa Core Product Module | Standard Medusa API & Seed | Medusa CLI (`medusa db:migrate`) |
-| **Inventory & Reservations** | Medusa Core Inventory Module | Medusa Native Reservation Workflows | Medusa CLI (`medusa db:migrate`) |
-| **Carts, Addresses, Line Items** | Medusa Core Cart Module | Standard Medusa Cart API | Medusa CLI (`medusa db:migrate`) |
-| **Orders & Transactions** | Medusa Core Order Module | Medusa Workflows (`completeCartWorkflow`) | Medusa CLI (`medusa db:migrate`) |
-| **Payments & Refunds** | Medusa Core Payment Module | Payment Provider Plugins (Razorpay/Stripe) | Medusa CLI (`medusa db:migrate`) |
-| **GST / HSN Details** | Custom `india-tax` Module | Module Link (`defineLink`) | Medusa CLI (`medusa db:migrate`) |
-| **Carousel Slides & Theme** | Custom `store-customizer` Module | DML (`model.define`) | Medusa CLI (`medusa db:migrate`) |
-| **Marketing API Tokens** | Custom `marketing-telemetry` Module | DML (`model.define`) | Medusa CLI (`medusa db:migrate`) |
-| **License Validation** | Custom `licensing` Module | DML (`model.define`) | Medusa CLI (`medusa db:migrate`) |
-
----
-
-## 3. Checkout, Inventory & Payment Orchestration
-
-### 3.1 Eliminating Conflicting Custom Logic
-The previous draft proposed a custom SQL-level reservation lock and a custom cron cleanup worker. This has been **completely removed**. 
-
-Instead, the platform relies exclusively on Medusa v2's native **`completeCartWorkflow`** and official inventory reservation primitives:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Shopper as Shopper
-    participant Storefront as Next.js Storefront
-    participant Workflow as Medusa completeCartWorkflow
-    participant Inventory as Medusa Inventory Module
-    participant Payment as Payment Provider (Razorpay / Stripe)
-    participant Order as Medusa Order Module
-    participant Telemetry as Telemetry Dispatcher (CAPI / GA4)
-
-    Shopper->>Storefront: Clicks "Complete Order"
-    Storefront->>Workflow: POST /store/carts/{id}/complete
-    Note over Workflow,Inventory: Step 1: Validate & Reserve Stock (Official Medusa Step)
-    Workflow->>Inventory: reserveInventoryStep(cart.items)
-    alt Inventory Insufficient
-        Workflow-->>Storefront: Error 409: Out of stock (Zero orphaned reservations)
-        Storefront-->>Shopper: Alert shopper & update cart
-    else Inventory Reserved Successfully
-        Note over Workflow,Payment: Step 2: Authorize Payment
-        Workflow->>Payment: authorizePaymentSessionStep(cart.payment_session)
-        alt Payment Authorization Fails / Declined
-            Note over Workflow,Inventory: Built-in Compensation: Automatically Releases Reservations
-            Workflow->>Inventory: Compensate (delete created reservation items)
-            Workflow-->>Storefront: Error 402: Payment declined
-            Storefront-->>Shopper: Prompt to retry or select another method
-        else Payment Authorization Succeeded
-            Note over Workflow,Order: Step 3: Create Order & Transition Inventory
-            Workflow->>Order: createOrderStep(cart, payment)
-            Workflow->>Inventory: adjustInventoryLevelsStep(deduct physical stock)
-            Workflow->>Telemetry: Emit order.placed event (Background)
-            Workflow-->>Storefront: Order Placed Success Response
-            Storefront-->>Shopper: Redirect to Order Confirmation
-        end
-    end
-```
-
-### 3.2 Payment Retries, Webhook Idempotency & Reconciliation
-* **Webhook Idempotency**: Payment provider webhooks (e.g., Razorpay `payment.captured` or Stripe `payment_intent.succeeded`) are processed through Medusa's idempotent event handlers. The transaction ID and idempotency key prevent duplicate order creation if both client-side redirect and server webhook arrive concurrently.
-* **Payment Failure & Retries**: When an authorization attempt fails, the shopper's cart remains active, the reserved inventory is immediately released by the workflow compensation step, and the shopper can retry with UPI, Netbanking, or another card.
-* **Reconciliation**: A scheduled Medusa reconciliation workflow checks pending payment sessions older than 30 minutes against the Razorpay/Stripe API, finalizing any orphaned orders or releasing abandoned carts cleanly.
+### 2.3 Custom Module Migration Workflow
+Custom modules follow Medusa v2's standard development and migration lifecycle:
+1. **Module Registration**: Registered in `medusa-config.ts` under the `modules` array:
+   ```typescript
+   module.exports = defineConfig({
+     modules: [
+       { resolve: "./src/modules/store-customizer" },
+       { resolve: "./src/modules/marketing-telemetry" },
+       { resolve: "./src/modules/india-tax" },
+       { resolve: "./src/modules/licensing" },
+     ],
+   });
+   ```
+2. **DML Modeling**: Entities defined using `model.define(...)` in `src/modules/<module-name>/models/`.
+3. **Migration Generation**: Generated via the Medusa CLI:
+   ```bash
+   npx medusa db:generate store-customizer
+   npx medusa db:generate marketing-telemetry
+   npx medusa db:generate india-tax
+   npx medusa db:generate licensing
+   ```
+   This generates standard TypeScript migration files inside `src/modules/<module-name>/migrations/`.
+4. **Migration Execution**: Executed via the Medusa CLI:
+   ```bash
+   npx medusa db:migrate
+   ```
+5. **Rollback & Verification**: Validated in CI/CD environments with rollback checks (`npx medusa db:rollback`) to verify schema idempotency.
 
 ---
 
-## 4. India-First Architecture Implementation
+## 3. Inventory Lifecycle & Checkout Error Handling
 
-The architecture incorporates first-class support for Indian e-commerce operational requirements:
+### 3.1 Official Medusa v2 Inventory Lifecycle
+Medusa v2 manages inventory through distinct reservation and consumption phases:
+* **Order Placement (`completeCartWorkflow`)**:
+  * Validates available unreserved stock.
+  * Creates **inventory reservations (`reservation_item`)** against the designated stock location's `inventory_level`.
+  * Physical stock (`stocked_quantity`) is **not** decremented at order placement.
+* **Order Fulfillment (`createFulfillmentWorkflow`)**:
+  * Consumes physical stock (`stocked_quantity` is decremented).
+  * Releases (deletes) the corresponding inventory reservations.
+  * Supports **partial fulfillment**: Only fulfilled items consume stock and release their respective reservations; remaining unfulfilled items retain their reservations.
+* **Order Cancellation (`cancelOrderWorkflow`)**:
+  * When an order or individual line item is canceled prior to fulfillment, Medusa automatically deletes/releases the applicable reservations, instantly restoring available stock.
+* **Cart Abandonment**:
+  * Adding items to a shopping cart does **not** create inventory reservations. Inactive or abandoned carts do not hold reservations, eliminating stock lockout risks without relying on custom cron cleanup scripts.
 
-```mermaid
-flowchart LR
-    subgraph Indian_Commerce_Layer ["India-First Operational Primitives"]
-        INR["INR (₹) Primary Currency\nIndian Numbering (1,49,999)"]
-        Razorpay["Razorpay Provider\n(UPI, Netbanking, Cards, Wallets)"]
-        COD["Cash on Delivery Engine\n(PIN Code Check, Extra Fee Rules)"]
-        GSTEngine["GST Calculation Engine\n(CGST+SGST / IGST by State, HSN Codes)"]
-        AddressSchema["Indian Address Schema\n(6-Digit PIN, State/UT Dropdown, Landmark)"]
-    end
-
-    Indian_Commerce_Layer --> Medusa_v2_Backend
-```
-
-* **GST Split Logic**: Evaluated during tax calculation:
-  $$\text{Tax Mode} = \begin{cases} \text{CGST} + \text{SGST} & \text{if } \text{State}_{\text{Merchant}} = \text{State}_{\text{Customer}} \\ \text{IGST} & \text{if } \text{State}_{\text{Merchant}} \ne \text{State}_{\text{Customer}} \end{cases}$$
-* **B2B Invoicing**: Stores customer GSTIN and outputs tax-compliant PDF invoices with clear tax breakdowns.
+### 3.2 Complete Cart API Response Behavior
+The storefront communicates with `POST /store/carts/{id}/complete`:
+* **Success**: Returns `HTTP 200 OK` with `{ type: "order", order: OrderDTO }`.
+* **Action Required**: In 3D-Secure or payment challenge flows, returns `HTTP 200 OK` with `{ type: "cart", cart: CartDTO, error?: { message, code, type } }`. The payment collection enters `requires_action`, prompting the storefront to execute the provider challenge before retrying completion.
+* **Errors**: Medusa returns structured errors `{ message: string, type: string, code: string }` with context-specific HTTP status codes:
+  * `HTTP 400 Bad Request`: Incomplete cart data or invalid address state.
+  * `HTTP 409 Conflict`: Insufficient unreserved inventory at the stock location.
+  * `HTTP 500 / Provider Error`: Gateway communication failure.
+  * Status codes are handled contextually by the storefront; the architecture does **not** assume all failures are HTTP 402 or 409.
 
 ---
 
-## 5. Independent Client Deployment & Lifecycle
+## 4. India-First Architecture & GST Place of Supply Rules
 
-### 5.1 Turnkey Single-VPS Docker Compose Architecture
-Each client receives an independent, self-contained deployment stack. The production container bundle consists of:
+### 4.1 Section 10 IGST Act Place of Supply Rules
+The GST calculation engine evaluates tax based on the merchant fulfillment warehouse location (supplier location) and delivery address (place of supply) under Section 10 of the Indian IGST Act:
+* **Supplier Location**: State of the registered stock location/warehouse from which goods are dispatched.
+* **Place of Supply**: State where movement of goods terminates for delivery to the recipient.
+* **Tax Determination**:
+  $$\text{Tax Applied} = \begin{cases} \text{CGST} + \text{SGST} & \text{if } \text{State}_{\text{Supplier}} = \text{State}_{\text{PlaceOfSupply}} \text{ (Intra-State)} \\ \text{IGST} & \text{if } \text{State}_{\text{Supplier}} \ne \text{State}_{\text{PlaceOfSupply}} \text{ (Inter-State)} \end{cases}$$
+* **B2B Invoicing**: Captures customer GSTIN, validates format, and generates GST-compliant invoices displaying HSN codes, taxable values, and applicable tax breakdowns.
 
-```
-/opt/the-ecom-buddy/
-├── docker-compose.yml          # Container orchestration
-├── .env.production             # Client-specific environment configuration
-├── Caddyfile                   # Reverse proxy with automated TLS 1.3
-├── data/
-│   ├── postgres/               # Persistent database volume (PostgreSQL 16)
-│   ├── redis/                  # Persistent cache & event bus volume (Redis 7)
-│   └── uploads/                # Local asset & media storage
-└── scripts/
-    ├── backup.sh               # Automated daily pg_dump + asset backup
-    └── restore.sh              # Disaster recovery restoration
-```
+---
 
-### 5.2 Early Validation of Deployment Assumptions
-To prevent unexpected deployment blockers in final milestones:
-* **Milestone 02**: Validates Docker container builds for Medusa v2 backend and PostgreSQL database connectivity early.
-* **Milestone 03**: Validates persistent volume mounting, database migrations (`medusa db:migrate`), and memory profiling on a baseline 4GB container environment.
+## 5. Security & Payment Compliance Architecture
+
+### 5.1 Independent Verification of PCI DSS Eligibility
+* The platform employs hosted iframe elements (**Stripe Elements** / **Razorpay Checkout**) so that no raw payment card data (PAN, CVV) touches application servers or databases.
+* **Independent Verification Required**: In accordance with PCI Security Standards Council guidance, PCI DSS SAQ-A eligibility cannot be claimed automatically. Actual qualification depends on the merchant's end-to-end deployment architecture, Content Security Policy (CSP) headers, payment integration implementation, and hosting environment, and must be independently evaluated and verified by the merchant via the formal PCI DSS SAQ-A Self-Assessment Questionnaire.

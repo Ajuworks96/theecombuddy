@@ -2,7 +2,7 @@
 
 **Project**: The Ecom Buddy  
 **Document**: SEO & Marketing Integration Plan  
-**Status**: Revised Architecture Specification (Post-Review Revision)  
+**Status**: Revised Architecture Specification (Final Step 01 Technical Corrections)  
 **Milestone**: 01 (Foundation & Technical Specification)  
 **Author**: Principal Software Architect & Senior E-commerce Product Engineer  
 
@@ -12,8 +12,8 @@
 
 Organic search discoverability and reliable marketing attribution are essential for independent e-commerce merchants. This document specifies:
 
-1. **Comprehensive Technical SEO**: Dynamic metadata, canonical tag enforcement, XML sitemaps, robots.txt, 301 redirect management, schema.org JSON-LD structured data, Image SEO, and automated Google Merchant Center (GMC) product feed generation.
-2. **Dual-Layer Meta Tracking (Pixel + CAPI)**: Deterministic event deduplication via stable, entity-derived `event_id` keys, consent-gated PII hashing, and realistic attribution performance targets (removing unverified 100% claims).
+1. **Current Technical SEO (Google Search Documentation Standards)**: Dynamic metadata, self-referential canonicals, XML sitemaps (using only supported `<loc>` and `<lastmod>` tags), robots.txt, 301 redirect management, schema.org JSON-LD structured data (`Product`, `Offer`, `BreadcrumbList`, `Organization`, `WebSite`), Image SEO, and automated Google Merchant Center (GMC) product feed generation.
+2. **Dual-Layer Meta Tracking (Pixel + CAPI)**: Deterministic event deduplication via stable, entity-derived `event_id` keys, consent-gated PII hashing, and realistic attribution performance targets (Event Match Quality score $\ge 8.0/10$).
 3. **Google Analytics 4 & Measurement Protocol**: Supported GA4 client tagging with Measurement Protocol backend validation, proper session parameter binding, and duplicate transaction prevention.
 4. **Privacy-First Consent Architecture**: Strict integration with **Google Consent Mode v2**, where telemetry is gated by individual shopper consent rather than merchant admin toggles alone.
 
@@ -59,7 +59,7 @@ flowchart TD
 
 ---
 
-## 2. Technical SEO Architecture (Google Search Documentation Standards)
+## 2. Technical SEO Architecture (Google Search Standards)
 
 ### 2.1 Metadata Management Across Page Types
 The storefront utilizes Next.js 15's Metadata API to generate dynamic, validated metadata:
@@ -91,12 +91,23 @@ Granular meta robots tags applied across routing tiers:
 | `/cart`, `/checkout`, `/account/*`, `/admin/*` | `noindex, nofollow` | Private checkout and customer session paths |
 | `/search?*` | `noindex, follow` | Prevents crawl budget waste on internal search results |
 
-### 2.4 XML Sitemaps
-An automated sitemap index is generated at `/sitemap.xml` conforming to the Sitemaps XML protocol:
-* `/sitemap-products.xml`: Updated dynamically upon product publication or modification via Medusa event triggers.
+### 2.4 XML Sitemaps (Compliant with Google Search Documentation)
+In accordance with current Google Search documentation, **Google ignores `<priority>` and `<changefreq>` tags**. Therefore, sitemaps are generated focusing strictly on accurate `<loc>` and `<lastmod>` values:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.com/products/linen-shirt</loc>
+    <lastmod>2026-10-28T08:00:00Z</lastmod>
+  </url>
+</urlset>
+```
+
+The sitemap index at `/sitemap.xml` partitions URLs into:
+* `/sitemap-products.xml`: Updated dynamically upon product publication or modification.
 * `/sitemap-categories.xml`: All active categories and collections.
 * `/sitemap-pages.xml`: Static policy and content pages.
-* Includes accurate `<lastmod>` (ISO 8601), calculated `<changefreq>`, and `<priority>`.
 
 ### 2.5 Dynamic `robots.txt`
 ```txt
@@ -119,7 +130,7 @@ Sitemap: https://example.com/sitemap.xml
 * When a merchant edits a product title or category handle, the system automatically writes an entry to a redirect lookup table in PostgreSQL.
 * Next.js middleware intercepts incoming requests to historical paths and issues a permanent **HTTP 301 Moved Permanently** response to the new canonical slug, preserving accumulated PageRank and eliminating 404 crawl errors.
 
-### 2.7 Structured Data (JSON-LD)
+### 2.7 Supported Structured Data (JSON-LD)
 Rich Schema.org structured data embedded in the `<head>` of relevant pages:
 * **`Product` & `Offer` Schema**: Conforms to Google Search Merchant listings requirements:
   * `name`, `image`, `description`, `sku`, `brand`.
@@ -127,7 +138,7 @@ Rich Schema.org structured data embedded in the `<head>` of relevant pages:
   * `hasMerchantReturnPolicy`: 30-day return window, return shipping fee rules.
   * `shippingDetails`: Delivery time and regional shipping rates.
 * **`BreadcrumbList`**: Structured breadcrumb progression for rich Google SERP snippets.
-* **`Organization` & `WebSite`**: Identity schema with `SearchAction` (`potentialAction`) for sitelinks search boxes.
+* **`Organization` & `WebSite`**: Identity schema declaring organizational credentials and official brand URL. (Note: Google officially deprecated and retired the Sitelinks Search Box in November 2024; therefore, `SearchAction` markup is omitted in accordance with current Google Search Central guidance).
 
 ### 2.8 Google Merchant Center (GMC) Product Feed
 * The backend generates an automated, compliant XML/TSV product feed at `/feeds/google-merchant-center.xml`.
@@ -143,7 +154,6 @@ Rich Schema.org structured data embedded in the `<head>` of relevant pages:
 ## 3. Dual-Layer Meta Tracking (Pixel + Conversions API)
 
 ### 3.1 Stable `event_id` Generation & Deduplication Lifecycle
-To enable Meta's deduplication algorithm to match browser pixel events with server CAPI events:
 1. **Browsing Events (`ViewContent`, `AddToCart`)**:
    * A client-side UUID (`crypto.randomUUID()`) is generated at the moment of interaction.
    * Format: `atc_[variant_id]_[uuid]`
@@ -152,17 +162,13 @@ To enable Meta's deduplication algorithm to match browser pixel events with serv
    * The identifier is derived stably from the underlying commerce entity:
      * `InitiateCheckout`: `ic_[cart_id]`
      * `Purchase`: `pur_[order_id]`
-   * **Retry Stability**: If a shopper reloads the order confirmation page or a webhook retries transmission, the identical `pur_[order_id]` is reused. No new logical event ID is generated for retried events.
-3. **Attribution Expectations**:
-   * We do **not** promise "100% purchase attribution" or "perfect event matching", as ad-blockers, network drops, and user cookie preferences impose technical constraints.
+   * **Retry Stability**: If a shopper reloads the order confirmation page or a webhook retries transmission, the identical `pur_[order_id]` is reused.
+3. **Attribution Targets**:
    * **Target**: Achieve an **Event Match Quality (EMQ) score $\ge 8.0 / 10$** on Purchase events by providing complete hashed customer parameters.
 
 ### 3.2 Customer Information Parameters & Secure Token Storage
-* Customer parameters are hashed with `SHA-256` before CAPI transmission:
-  * `em` (lowercase trimmed email), `ph` (E.164 phone format), `fn`/`ln` (first/last name), `ct` (city), `zp` (PIN code), `country` (`IN`).
-  * `client_ip_address` and `client_user_agent` transmitted raw in request headers.
-  * `fbp` and `fbc` cookies extracted from incoming HTTP requests.
-* **Token Security**: The Meta System User Access Token is stored encrypted at rest (AES-256) on the backend and is **never** bundled or exposed to client-side code.
+* Customer parameters are hashed with `SHA-256` before CAPI transmission (`em`, `ph`, `fn`, `ln`, `ct`, `zp`, `country`).
+* **Token Security**: The Meta System User Access Token is stored encrypted at rest (AES-256) inside the `marketing_config` table (managed by `src/modules/marketing-telemetry`) and is never exposed to client-side code.
 
 ---
 
@@ -170,24 +176,21 @@ To enable Meta's deduplication algorithm to match browser pixel events with serv
 
 ### 4.1 Supported Tagging Patterns
 * **Primary Client DataLayer**: The primary attribution engine remains the client-side GA4 tag (`gtag.js` or GTM) loaded in the storefront. This ensures session stitching, UTM parameter capture, and Google Ads click identifier (`gclid`) attribution.
-* Standard e-commerce events fired on the dataLayer: `view_item_list`, `view_item`, `add_to_cart`, `remove_from_cart`, `begin_checkout`, `add_shipping_info`, `add_payment_info`, `purchase`.
+* Standard e-commerce events: `view_item_list`, `view_item`, `add_to_cart`, `remove_from_cart`, `begin_checkout`, `add_shipping_info`, `add_payment_info`, `purchase`.
 
 ### 4.2 Server-Side Measurement Protocol Integration
 * Used strictly as a **backend validation and reconciliation event** for completed orders.
 * **Requirements for Valid Attribution**:
   * Captures and transmits `client_id` (extracted from the `_ga` cookie) and `session_id` (extracted from `_ga_<container-id>`).
   * Transmits unique `transaction_id` (`order.display_id`).
-* **Duplicate Prevention**:
-  * If the client confirmation page successfully dispatches the `purchase` event with the transaction ID, GA4 deduplicates subsequent Measurement Protocol hits sharing the identical `transaction_id`.
-  * Claims of "Measurement Protocol guarantees 100% accurate revenue reporting" have been removed.
+* **Duplicate Prevention**: GA4 deduplicates subsequent Measurement Protocol hits sharing the identical `transaction_id`.
 
 ---
 
 ## 5. Privacy, Regional Consent & Google Consent Mode v2
 
-### 5.1 Resolving Previous Privacy Contradictions
-* Previous drafts had a discrepancy where database defaults indicated granted consent while documentation claimed privacy by default.
-* **Correction**: Default tracking consent in the database and frontend application is strictly **`denied`**.
+### 5.1 Privacy-First Consent State
+* Default tracking consent in the database (`marketing_config.default_consent_mode`) and frontend application is strictly **`denied`**.
 
 ### 5.2 Consent Mode v2 Implementation
 The storefront initializes Google Consent Mode v2 prior to any marketing scripts loading:
@@ -205,5 +208,5 @@ gtag('consent', 'default', {
 ```
 
 ### 5.3 Decoupling Merchant Toggles from Shopper Consent
-* A merchant enabling Meta or Google tracking in the admin dashboard merely configures the integration keys.
-* **Shopper Gating Rule**: Under no circumstances does a merchant toggle override individual shopper consent. Telemetry scripts and server-side CAPI PII dispatches are executed **only** after the shopper explicitly accepts tracking via the storefront consent banner.
+* A merchant enabling Meta or Google tracking in the admin dashboard merely configures the integration credentials.
+* **Shopper Gating Rule**: Telemetry scripts and server-side CAPI PII dispatches are executed **only** after the individual shopper explicitly provides consent via the storefront banner.

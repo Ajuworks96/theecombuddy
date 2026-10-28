@@ -7,14 +7,16 @@
     "build": "medusa build",
     "start": "medusa start",
     "dev": "medusa develop",
+    "seed": "medusa exec ./src/scripts/seed.ts",
+    "verify": "medusa exec ./src/scripts/verify-milestone-02b.ts",
     "db:migrate": "medusa db:migrate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@medusajs/admin-sdk": "2.18.0",
-    "@medusajs/cli": "2.18.0",
-    "@medusajs/framework": "2.18.0",
-    "@medusajs/medusa": "2.18.0",
+    "@medusajs/admin-sdk": "2.22.1",
+    "@medusajs/cli": "2.22.1",
+    "@medusajs/framework": "2.22.1",
+    "@medusajs/medusa": "2.22.1",
     "@the-ecom-buddy/types": "*"
   },
   "devDependencies": {

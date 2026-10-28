@@ -212,3 +212,4 @@ Medusa `2.22.0+` introduces a strict constraint of `node >= 22.22.0`. By intenti
 - **Storefront Customization**: Custom homepage carousel, product grids, and checkout flows are scheduled for subsequent milestones.
 
 **STOP**: Milestone 02A verification is complete. System is in a clean, reproducible state awaiting review before Milestone 02B begins.
+

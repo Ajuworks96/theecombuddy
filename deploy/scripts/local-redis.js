@@ -119,3 +119,4 @@ switch (command) {
     console.log('Usage: node deploy/scripts/local-redis.js [start|stop|status]');
     process.exit(1);
 }
+

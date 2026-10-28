@@ -32,10 +32,19 @@ export default defineConfig({
             },
           },
         },
-        [Modules.CACHE]: {
-          resolve: "@medusajs/medusa/cache-redis",
+        [Modules.CACHING]: {
+          resolve: "@medusajs/medusa/caching",
           options: {
-            redisUrl: process.env.REDIS_URL,
+            providers: [
+              {
+                id: "caching-redis",
+                resolve: "@medusajs/medusa/caching-redis",
+                is_default: true,
+                options: {
+                  redisUrl: process.env.REDIS_URL,
+                },
+              },
+            ],
           },
         },
       }

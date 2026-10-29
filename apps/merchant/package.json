@@ -11,19 +11,22 @@
     "verify:03a": "node src/scripts/verify-milestone-03a.js",
     "verify:03b": "node src/scripts/verify-milestone-03b.js",
     "verify:03c": "node src/scripts/verify-milestone-03c.js",
-    "verify:03d": "node src/scripts/verify-milestone-03d.js"
+    "verify:03d": "node src/scripts/verify-milestone-03d.js",
+    "verify:03e": "node src/scripts/verify-milestone-03e.js"
   },
   "dependencies": {
     "@the-ecom-buddy/types": "*",
     "@the-ecom-buddy/ui": "*",
     "clsx": "^2.1.1",
     "next": "^15.2.0",
+    "pg": "^8.13.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
     "@types/node": "^20.12.11",
+    "@types/pg": "^8.11.10",
     "@types/react": "^18.3.2",
     "@types/react-dom": "^18.2.25",
     "autoprefixer": "^10.4.20",

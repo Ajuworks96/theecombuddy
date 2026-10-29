@@ -1,0 +1,907 @@
+{
+  "draft": {
+    "id": "theme_cfg_v4_1793281982584",
+    "colors": {
+      "footerBg": "#060911",
+      "headerBg": "#0B0F19",
+      "textMuted": "#6B7280",
+      "footerText": "#9CA3AF",
+      "headerText": "#F9FAFB",
+      "brandAccent": "#3B82F6",
+      "surfaceBase": "#0B0F19",
+      "textPrimary": "#F9FAFB",
+      "borderStrong": "#374151",
+      "borderSubtle": "#1F2937",
+      "brandPrimary": "#10B981",
+      "surfaceMuted": "#1F2937",
+      "textInverted": "#111827",
+      "surfaceSubtle": "#111827",
+      "textSecondary": "#9CA3AF",
+      "surfaceInverted": "#FFFFFF",
+      "brandAccentHover": "#2563EB",
+      "brandPrimaryHover": "#059669"
+    },
+    "domain": {
+      "sslStatus": "active",
+      "customDomain": "theecombuddy.local",
+      "primaryDomain": "localhost:3000"
+    },
+    "footer": {
+      "columns": [
+        {
+          "id": "col_shop",
+          "links": [
+            {
+              "id": "l1",
+              "href": "/categories/electronics-audio",
+              "label": "Electronics & Audio"
+            },
+            {
+              "id": "l2",
+              "href": "/categories/home-kitchen-living",
+              "label": "Home & Kitchen"
+            },
+            {
+              "id": "l3",
+              "href": "/categories/health-ayurvedic-wellness",
+              "label": "Ayurvedic Care"
+            },
+            {
+              "id": "l4",
+              "href": "/categories/apparel-ethnic-wear",
+              "label": "Ethnic Apparel"
+            }
+          ],
+          "title": "Shop Categories"
+        },
+        {
+          "id": "col_help",
+          "links": [
+            {
+              "id": "l5",
+              "href": "/orders",
+              "label": "Track My Order"
+            },
+            {
+              "id": "l6",
+              "href": "/shipping",
+              "label": "Shipping Policy"
+            },
+            {
+              "id": "l7",
+              "href": "/returns",
+              "label": "Returns & Exchanges"
+            },
+            {
+              "id": "l8",
+              "href": "/cod-terms",
+              "label": "COD Terms & Conditions"
+            }
+          ],
+          "title": "Customer Support"
+        },
+        {
+          "id": "col_company",
+          "links": [
+            {
+              "id": "l9",
+              "href": "/about",
+              "label": "About Our Craft"
+            },
+            {
+              "id": "l10",
+              "href": "/global",
+              "label": "Global Selling (US, UK, UAE, EU)"
+            },
+            {
+              "id": "l11",
+              "href": "/contact",
+              "label": "Contact Us"
+            },
+            {
+              "id": "l12",
+              "href": "/privacy",
+              "label": "Privacy Policy"
+            }
+          ],
+          "title": "The Ecom Buddy"
+        }
+      ],
+      "tagline": "Independently self-hosted direct-to-consumer e-commerce platform.",
+      "copyrightText": "© 2026 The Ecom Buddy. All rights reserved. Self-Hosted White-Label License.",
+      "showNewsletter": true,
+      "newsletterTitle": "Join the Exclusive Community",
+      "showPaymentIcons": true,
+      "newsletterSubtitle": "Get early access to drops and festive coupons."
+    },
+    "status": "draft",
+    "styling": {
+      "cardStyle": "bordered",
+      "buttonStyle": "sharp",
+      "headerStyle": "sticky",
+      "borderRadius": "sm"
+    },
+    "version": 1,
+    "identity": {
+      "logoUrl": "/images/logo.svg",
+      "tagline": "Modern Lifestyle & Everyday Essentials",
+      "storeName": "The Ecom Buddy",
+      "faviconUrl": "/favicon.ico",
+      "socialLinks": {
+        "twitter": "https://twitter.com/theecombuddy",
+        "youtube": "https://youtube.com/@theecombuddy",
+        "facebook": "https://facebook.com/theecombuddy",
+        "linkedin": "https://linkedin.com/company/theecombuddy",
+        "instagram": "https://instagram.com/theecombuddy"
+      },
+      "contactEmail": "support@theecombuddy.in",
+      "contactPhone": "+91 98765 43210",
+      "businessHours": "Mon – Sat: 9:00 AM – 7:00 PM IST",
+      "contactAddress": "Maker Maxity, Bandra Kurla Complex, Mumbai, MH 400051, India"
+    },
+    "presetId": "crescendo",
+    "sections": [
+      {
+        "id": "sec_hero",
+        "type": "hero_slider",
+        "title": "Flagship Hero Carousel",
+        "config": {
+          "autoplay": true,
+          "showDots": true,
+          "showArrows": true,
+          "autoplaySpeed": 5000
+        },
+        "subtitle": "Dynamic editorial hero presentation with 6 curated slides",
+        "isEnabled": true,
+        "displayOrder": 1
+      },
+      {
+        "id": "sec_trust",
+        "type": "trust_benefits",
+        "title": "Store Guarantees & Trust Bar",
+        "config": {
+          "items": [
+            {
+              "desc": "Fast 2-4 day delivery",
+              "title": "Pan-India Express Air"
+            },
+            {
+              "desc": "Pay safely at doorstep",
+              "title": "Cash on Delivery Available"
+            },
+            {
+              "desc": "No questions asked guarantee",
+              "title": "7-Day Easy Returns"
+            },
+            {
+              "desc": "Direct authentic craft",
+              "title": "100% Genuine & Verified"
+            }
+          ]
+        },
+        "subtitle": "Key merchant service commitments",
+        "isEnabled": true,
+        "displayOrder": 2
+      },
+      {
+        "id": "sec_categories",
+        "type": "featured_categories",
+        "title": "Curated Catalog Categories",
+        "config": {
+          "limit": 8,
+          "layout": "grid_4"
+        },
+        "subtitle": "Browse our 8 authentic consumer categories",
+        "isEnabled": true,
+        "displayOrder": 3
+      },
+      {
+        "id": "sec_promo_banner",
+        "type": "promotional_banner",
+        "title": "Festive Season Showcase",
+        "config": {
+          "badge": "LIMITED TIME OFFER",
+          "bgColor": "#0B0F19",
+          "ctaLink": "/collections/festive-specials",
+          "ctaLabel": "Shop Festive Specials",
+          "headline": "Festive Celebration Savings Up to 30% Off",
+          "accentColor": "#10B981",
+          "description": "Use coupon code WELCOME10 or FLAT100 during checkout."
+        },
+        "subtitle": "Philox Reference 05 High-Impact Split Promotion",
+        "isEnabled": true,
+        "displayOrder": 4
+      },
+      {
+        "id": "sec_featured_products",
+        "type": "featured_products",
+        "title": "Editor's Spotlight Picks",
+        "config": {
+          "limit": 6,
+          "showPrice": true,
+          "showBadges": true
+        },
+        "subtitle": "Hand-selected top performers from our 520 catalog items",
+        "isEnabled": true,
+        "displayOrder": 5
+      },
+      {
+        "id": "sec_new_arrivals",
+        "type": "new_arrivals",
+        "title": "Fresh Seasonal Arrivals",
+        "config": {
+          "limit": 4
+        },
+        "subtitle": "Recently added catalog items",
+        "isEnabled": true,
+        "displayOrder": 6
+      },
+      {
+        "id": "sec_bestsellers",
+        "type": "best_sellers",
+        "title": "Customer Favorites & Bestsellers",
+        "config": {
+          "limit": 4
+        },
+        "subtitle": "Most sought-after items across all regions",
+        "isEnabled": true,
+        "displayOrder": 7
+      },
+      {
+        "id": "sec_editorial",
+        "type": "editorial_story",
+        "title": "Craftsmanship & White-Label Independence",
+        "config": {
+          "image": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80",
+          "headline": "Direct-to-Consumer Excellence Without Centralized SaaS Limits",
+          "paragraph": "The Ecom Buddy empowers self-hosted merchants with complete data sovereignty, native multi-currency commerce, and lightning-fast storefronts."
+        },
+        "subtitle": "Our Brand Journey",
+        "isEnabled": true,
+        "displayOrder": 8
+      },
+      {
+        "id": "sec_newsletter",
+        "type": "newsletter",
+        "title": "Stay Connected With The Ecom Buddy",
+        "config": {
+          "buttonLabel": "Join Club",
+          "placeholder": "Enter your personal email..."
+        },
+        "subtitle": "Subscribe for product drops, exclusive seasonal discounts, and member perks.",
+        "isEnabled": true,
+        "displayOrder": 9
+      }
+    ],
+    "updatedAt": "2026-10-29T13:53:02.601Z",
+    "heroSlider": {
+      "slides": [
+        {
+          "id": "slide_01_audio",
+          "badge": "New Release",
+          "heading": "Immersive Sound Engineered for Audiophiles",
+          "ctaLabel": "Explore Audio Gear",
+          "isActive": true,
+          "textColor": "#F9FAFB",
+          "subheading": "FLAGSHIP ACOUSTICS",
+          "description": "Studio-grade active noise cancellation with 40mm titanium drivers and 60-hour lossless playback.",
+          "displayOrder": 1,
+          "overlayColor": "#0B0F19",
+          "buttonBgColor": "#10B981",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/electronics-audio",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 45,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_02_wearables",
+          "badge": "Bestseller",
+          "heading": "Precision Health & Bio-Metric Intelligence",
+          "ctaLabel": "Shop Smartwatches",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "SMART HOROLOGY",
+          "description": "Continuous SpO2, HRV tracking, aerospace-grade titanium chassis, and sapphire crystal display.",
+          "displayOrder": 2,
+          "overlayColor": "#0B0F19",
+          "buttonBgColor": "#3B82F6",
+          "textAlignment": "center",
+          "ctaDestination": "/categories/sports-fitness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 40,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_03_home",
+          "badge": "Eco-Conscious",
+          "heading": "Artisanal Living & Sustainable Kitchenware",
+          "ctaLabel": "Discover Living",
+          "isActive": true,
+          "textColor": "#F9FAFB",
+          "subheading": "HEIRLOOM CRAFT",
+          "description": "Hand-hammered pure copper cookware, natural stoneware, and slow-crafted home decor essentials.",
+          "displayOrder": 3,
+          "overlayColor": "#060911",
+          "buttonBgColor": "#C28E5C",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/home-kitchen-living",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 35,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_04_wellness",
+          "badge": "100% Certified Organic",
+          "heading": "Pure Ayurvedic Botanics & Clean Radiance",
+          "ctaLabel": "Shop Clean Beauty",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "HOLISTIC BEAUTY",
+          "description": "Cold-pressed herbal elixirs, organic saffron facial serums, and restorative therapeutic botanicals.",
+          "displayOrder": 4,
+          "overlayColor": "#111827",
+          "buttonBgColor": "#10B981",
+          "textAlignment": "right",
+          "ctaDestination": "/categories/health-ayurvedic-wellness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 50,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_05_apparel",
+          "badge": "Artisanal",
+          "heading": "Timeless Handwoven Festive & Ethnic Wear",
+          "ctaLabel": "Explore Collection",
+          "isActive": true,
+          "textColor": "#FAFAF9",
+          "subheading": "HERITAGE TEXTILES",
+          "description": "Breathable organic linen kurtas, raw tussar silk stoles, and contemporary artisanal silhouettes.",
+          "displayOrder": 5,
+          "overlayColor": "#1C1917",
+          "buttonBgColor": "#C28E5C",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/apparel-ethnic-wear",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 40,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_06_fitness",
+          "badge": "High Endurance",
+          "heading": "Engineered for Peak Athletic Agility",
+          "ctaLabel": "Shop Fitness",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "PERFORMANCE GEAR",
+          "description": "Ergonomic resistance training systems, speed jump ropes, and high-tensile recovery mobility gear.",
+          "displayOrder": 6,
+          "overlayColor": "#0B0F19",
+          "buttonBgColor": "#EF4444",
+          "textAlignment": "center",
+          "ctaDestination": "/categories/sports-fitness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 45,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80"
+        }
+      ],
+      "autoplay": true,
+      "showDots": true,
+      "showArrows": true,
+      "autoplaySpeed": 5000
+    },
+    "navigation": {
+      "showCart": true,
+      "menuItems": [
+        {
+          "id": "nav_1",
+          "href": "/products",
+          "label": "Shop All"
+        },
+        {
+          "id": "nav_2",
+          "href": "/categories/electronics-audio",
+          "label": "Electronics"
+        },
+        {
+          "id": "nav_3",
+          "href": "/categories/home-kitchen-living",
+          "label": "Home Living"
+        },
+        {
+          "id": "nav_4",
+          "href": "/categories/health-ayurvedic-wellness",
+          "label": "Wellness"
+        },
+        {
+          "id": "nav_5",
+          "href": "/categories/apparel-ethnic-wear",
+          "label": "Apparel"
+        },
+        {
+          "id": "nav_6",
+          "href": "/collections/festive-specials",
+          "badge": "HOT",
+          "label": "Festive Deals"
+        }
+      ],
+      "showSearch": true,
+      "showAccount": true,
+      "showCurrencyPicker": true
+    },
+    "presetName": "Crescendo Electronics",
+    "typography": {
+      "bodyFont": "Inter",
+      "bodySize": "base",
+      "monoFont": "JetBrains Mono",
+      "displayFont": "Plus Jakarta Sans",
+      "headingWeight": "semibold"
+    },
+    "publishedAt": "2026-10-29T13:49:19.454Z",
+    "announcement": {
+      "text": "⚡ FESTIVE FLASH SALE: Flat ₹100 Off + Free Shipping across India! Use code FLAT100",
+      "bgColor": "#10B981",
+      "enabled": true,
+      "linkUrl": "/collections/festive-specials",
+      "closeable": true,
+      "textColor": "#FFFFFF"
+    }
+  },
+  "published": {
+    "id": "theme_cfg_v4_1793281982584",
+    "colors": {
+      "footerBg": "#060911",
+      "headerBg": "#0B0F19",
+      "textMuted": "#6B7280",
+      "footerText": "#9CA3AF",
+      "headerText": "#F9FAFB",
+      "brandAccent": "#3B82F6",
+      "surfaceBase": "#0B0F19",
+      "textPrimary": "#F9FAFB",
+      "borderStrong": "#374151",
+      "borderSubtle": "#1F2937",
+      "brandPrimary": "#10B981",
+      "surfaceMuted": "#1F2937",
+      "textInverted": "#111827",
+      "surfaceSubtle": "#111827",
+      "textSecondary": "#9CA3AF",
+      "surfaceInverted": "#FFFFFF",
+      "brandAccentHover": "#2563EB",
+      "brandPrimaryHover": "#059669"
+    },
+    "domain": {
+      "sslStatus": "active",
+      "customDomain": "theecombuddy.local",
+      "primaryDomain": "localhost:3000"
+    },
+    "footer": {
+      "columns": [
+        {
+          "id": "col_shop",
+          "links": [
+            {
+              "id": "l1",
+              "href": "/categories/electronics-audio",
+              "label": "Electronics & Audio"
+            },
+            {
+              "id": "l2",
+              "href": "/categories/home-kitchen-living",
+              "label": "Home & Kitchen"
+            },
+            {
+              "id": "l3",
+              "href": "/categories/health-ayurvedic-wellness",
+              "label": "Ayurvedic Care"
+            },
+            {
+              "id": "l4",
+              "href": "/categories/apparel-ethnic-wear",
+              "label": "Ethnic Apparel"
+            }
+          ],
+          "title": "Shop Categories"
+        },
+        {
+          "id": "col_help",
+          "links": [
+            {
+              "id": "l5",
+              "href": "/orders",
+              "label": "Track My Order"
+            },
+            {
+              "id": "l6",
+              "href": "/shipping",
+              "label": "Shipping Policy"
+            },
+            {
+              "id": "l7",
+              "href": "/returns",
+              "label": "Returns & Exchanges"
+            },
+            {
+              "id": "l8",
+              "href": "/cod-terms",
+              "label": "COD Terms & Conditions"
+            }
+          ],
+          "title": "Customer Support"
+        },
+        {
+          "id": "col_company",
+          "links": [
+            {
+              "id": "l9",
+              "href": "/about",
+              "label": "About Our Craft"
+            },
+            {
+              "id": "l10",
+              "href": "/global",
+              "label": "Global Selling (US, UK, UAE, EU)"
+            },
+            {
+              "id": "l11",
+              "href": "/contact",
+              "label": "Contact Us"
+            },
+            {
+              "id": "l12",
+              "href": "/privacy",
+              "label": "Privacy Policy"
+            }
+          ],
+          "title": "The Ecom Buddy"
+        }
+      ],
+      "tagline": "Independently self-hosted direct-to-consumer e-commerce platform.",
+      "copyrightText": "© 2026 The Ecom Buddy. All rights reserved. Self-Hosted White-Label License.",
+      "showNewsletter": true,
+      "newsletterTitle": "Join the Exclusive Community",
+      "showPaymentIcons": true,
+      "newsletterSubtitle": "Get early access to drops and festive coupons."
+    },
+    "status": "published",
+    "styling": {
+      "cardStyle": "bordered",
+      "buttonStyle": "sharp",
+      "headerStyle": "sticky",
+      "borderRadius": "sm"
+    },
+    "version": 4,
+    "identity": {
+      "logoUrl": "/images/logo.svg",
+      "tagline": "Clean Tagline ",
+      "storeName": "The Ecom Buddy Pro",
+      "faviconUrl": "/favicon.ico",
+      "socialLinks": {
+        "twitter": "https://twitter.com/theecombuddypro",
+        "instagram": "https://instagram.com/theecombuddypro"
+      },
+      "contactEmail": "care@theecombuddy.in",
+      "contactPhone": "+91 98765 12345",
+      "businessHours": "Mon – Sat: 9:00 AM – 7:00 PM IST",
+      "contactAddress": "Maker Maxity, Bandra Kurla Complex, Mumbai, MH 400051, India"
+    },
+    "presetId": "crescendo",
+    "sections": [
+      {
+        "id": "sec_trust",
+        "type": "trust_benefits",
+        "title": "Store Guarantees & Trust Bar",
+        "config": {
+          "items": [
+            {
+              "desc": "Fast 2-4 day delivery",
+              "title": "Pan-India Express Air"
+            },
+            {
+              "desc": "Pay safely at doorstep",
+              "title": "Cash on Delivery Available"
+            },
+            {
+              "desc": "No questions asked guarantee",
+              "title": "7-Day Easy Returns"
+            },
+            {
+              "desc": "Direct authentic craft",
+              "title": "100% Genuine & Verified"
+            }
+          ]
+        },
+        "subtitle": "Key merchant service commitments",
+        "isEnabled": true,
+        "displayOrder": 1
+      },
+      {
+        "id": "sec_hero",
+        "type": "hero_slider",
+        "title": "Flagship Hero Carousel",
+        "config": {
+          "autoplay": true,
+          "showDots": true,
+          "showArrows": true,
+          "autoplaySpeed": 5000
+        },
+        "subtitle": "Dynamic editorial hero presentation with 6 curated slides",
+        "isEnabled": true,
+        "displayOrder": 2
+      },
+      {
+        "id": "sec_categories",
+        "type": "featured_categories",
+        "title": "Curated Catalog Categories",
+        "config": {
+          "limit": 8,
+          "layout": "grid_4"
+        },
+        "subtitle": "Browse our 8 authentic consumer categories",
+        "isEnabled": true,
+        "displayOrder": 3
+      },
+      {
+        "id": "sec_promo_banner",
+        "type": "promotional_banner",
+        "title": "Festive Season Showcase",
+        "config": {
+          "badge": "LIMITED TIME OFFER",
+          "bgColor": "#0B0F19",
+          "ctaLink": "/collections/festive-specials",
+          "ctaLabel": "Shop Festive Specials",
+          "headline": "Festive Celebration Savings Up to 30% Off",
+          "accentColor": "#10B981",
+          "description": "Use coupon code WELCOME10 or FLAT100 during checkout."
+        },
+        "subtitle": "Philox Reference 05 High-Impact Split Promotion",
+        "isEnabled": true,
+        "displayOrder": 4
+      },
+      {
+        "id": "sec_featured_products",
+        "type": "featured_products",
+        "title": "Editor's Spotlight Picks",
+        "config": {
+          "limit": 6,
+          "showPrice": true,
+          "showBadges": true
+        },
+        "subtitle": "Hand-selected top performers from our 520 catalog items",
+        "isEnabled": true,
+        "displayOrder": 5
+      },
+      {
+        "id": "sec_new_arrivals",
+        "type": "new_arrivals",
+        "title": "Fresh Seasonal Arrivals",
+        "config": {
+          "limit": 4
+        },
+        "subtitle": "Recently added catalog items",
+        "isEnabled": true,
+        "displayOrder": 6
+      },
+      {
+        "id": "sec_bestsellers",
+        "type": "best_sellers",
+        "title": "Customer Favorites & Bestsellers",
+        "config": {
+          "limit": 4
+        },
+        "subtitle": "Most sought-after items across all regions",
+        "isEnabled": true,
+        "displayOrder": 7
+      },
+      {
+        "id": "sec_editorial",
+        "type": "editorial_story",
+        "title": "Craftsmanship & White-Label Independence",
+        "config": {
+          "image": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80",
+          "headline": "Direct-to-Consumer Excellence Without Centralized SaaS Limits",
+          "paragraph": "The Ecom Buddy empowers self-hosted merchants with complete data sovereignty, native multi-currency commerce, and lightning-fast storefronts."
+        },
+        "subtitle": "Our Brand Journey",
+        "isEnabled": true,
+        "displayOrder": 8
+      },
+      {
+        "id": "sec_newsletter",
+        "type": "newsletter",
+        "title": "Stay Connected With The Ecom Buddy",
+        "config": {
+          "buttonLabel": "Join Club",
+          "placeholder": "Enter your personal email..."
+        },
+        "subtitle": "Subscribe for product drops, exclusive seasonal discounts, and member perks.",
+        "isEnabled": false,
+        "displayOrder": 9
+      }
+    ],
+    "updatedAt": "2026-10-29T13:53:02.583Z",
+    "heroSlider": {
+      "slides": [
+        {
+          "id": "slide_06_fitness",
+          "badge": "High Endurance",
+          "heading": "Engineered for Peak Athletic Agility",
+          "ctaLabel": "Shop Fitness",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "PERFORMANCE GEAR",
+          "description": "Ergonomic resistance training systems, speed jump ropes, and high-tensile recovery mobility gear.",
+          "displayOrder": 1,
+          "overlayColor": "#0B0F19",
+          "buttonBgColor": "#EF4444",
+          "textAlignment": "center",
+          "ctaDestination": "/categories/sports-fitness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 45,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_05_apparel",
+          "badge": "Artisanal",
+          "heading": "Timeless Handwoven Festive & Ethnic Wear",
+          "ctaLabel": "Explore Collection",
+          "isActive": true,
+          "textColor": "#FAFAF9",
+          "subheading": "HERITAGE TEXTILES",
+          "description": "Breathable organic linen kurtas, raw tussar silk stoles, and contemporary artisanal silhouettes.",
+          "displayOrder": 2,
+          "overlayColor": "#1C1917",
+          "buttonBgColor": "#C28E5C",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/apparel-ethnic-wear",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 40,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_04_wellness",
+          "badge": "100% Certified Organic",
+          "heading": "Pure Ayurvedic Botanics & Clean Radiance",
+          "ctaLabel": "Shop Clean Beauty",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "HOLISTIC BEAUTY",
+          "description": "Cold-pressed herbal elixirs, organic saffron facial serums, and restorative therapeutic botanicals.",
+          "displayOrder": 3,
+          "overlayColor": "#111827",
+          "buttonBgColor": "#10B981",
+          "textAlignment": "right",
+          "ctaDestination": "/categories/health-ayurvedic-wellness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 50,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_03_home",
+          "badge": "Eco-Conscious",
+          "heading": "Artisanal Living & Sustainable Kitchenware",
+          "ctaLabel": "Discover Living",
+          "isActive": true,
+          "textColor": "#F9FAFB",
+          "subheading": "HEIRLOOM CRAFT",
+          "description": "Hand-hammered pure copper cookware, natural stoneware, and slow-crafted home decor essentials.",
+          "displayOrder": 4,
+          "overlayColor": "#060911",
+          "buttonBgColor": "#C28E5C",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/home-kitchen-living",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 35,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_02_wearables",
+          "badge": "Bestseller",
+          "heading": "Precision Health & Bio-Metric Intelligence",
+          "ctaLabel": "Shop Smartwatches",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "SMART HOROLOGY",
+          "description": "Continuous SpO2, HRV tracking, aerospace-grade titanium chassis, and sapphire crystal display.",
+          "displayOrder": 5,
+          "overlayColor": "#0B0F19",
+          "buttonBgColor": "#3B82F6",
+          "textAlignment": "center",
+          "ctaDestination": "/categories/sports-fitness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 40,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_01_audio",
+          "badge": "New Release",
+          "heading": "Immersive Sound Engineered for Audiophiles",
+          "ctaLabel": "Explore Audio Gear",
+          "isActive": true,
+          "textColor": "#F9FAFB",
+          "subheading": "FLAGSHIP ACOUSTICS",
+          "description": "Studio-grade active noise cancellation with 40mm titanium drivers and 60-hour lossless playback.",
+          "displayOrder": 6,
+          "overlayColor": "#0B0F19",
+          "buttonBgColor": "#10B981",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/electronics-audio",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 45,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80"
+        }
+      ],
+      "autoplay": true,
+      "showDots": true,
+      "showArrows": true,
+      "autoplaySpeed": 5000
+    },
+    "navigation": {
+      "showCart": true,
+      "menuItems": [
+        {
+          "id": "nav_1",
+          "href": "/products",
+          "label": "Shop All"
+        },
+        {
+          "id": "nav_2",
+          "href": "/categories/electronics-audio",
+          "label": "Electronics"
+        },
+        {
+          "id": "nav_3",
+          "href": "/categories/home-kitchen-living",
+          "label": "Home Living"
+        },
+        {
+          "id": "nav_4",
+          "href": "/categories/health-ayurvedic-wellness",
+          "label": "Wellness"
+        },
+        {
+          "id": "nav_5",
+          "href": "/categories/apparel-ethnic-wear",
+          "label": "Apparel"
+        },
+        {
+          "id": "nav_6",
+          "href": "/collections/festive-specials",
+          "badge": "HOT",
+          "label": "Festive Deals"
+        }
+      ],
+      "showSearch": true,
+      "showAccount": true,
+      "showCurrencyPicker": true
+    },
+    "presetName": "Crescendo Electronics",
+    "typography": {
+      "bodyFont": "Inter",
+      "bodySize": "base",
+      "monoFont": "JetBrains Mono",
+      "displayFont": "Plus Jakarta Sans",
+      "headingWeight": "semibold"
+    },
+    "publishedAt": "2026-10-29T13:53:02.583Z",
+    "announcement": {
+      "text": "🚀 FESTIVE LAUNCH: Free Express Air Shipping On Orders Over ₹999!",
+      "bgColor": "#10B981",
+      "enabled": true,
+      "linkUrl": "/collections/festive-specials",
+      "closeable": true,
+      "textColor": "#FFFFFF"
+    }
+  }
+}

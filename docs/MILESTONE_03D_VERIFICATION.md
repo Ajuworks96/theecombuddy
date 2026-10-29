@@ -110,3 +110,4 @@ The automated verification suite (`apps/merchant/src/scripts/verify-milestone-03
 3. **Zero-Mock Policy**: All international market updates, FX conversions, and pricing rules interface via official Medusa v2 APIs.
 4. **Export Safety**: Cash on Delivery is strictly prevented for international markets; only domestic Indian transactions can authorize COD.
 5. **Milestone Boundary**: Development stopped strictly at Milestone 03D completion without starting customer storefront theme customization or Cashfree payment integration.
+

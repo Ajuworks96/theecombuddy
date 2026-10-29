@@ -19,6 +19,8 @@
     "verify": "npm run verify --workspace=@the-ecom-buddy/backend",
     "setup:02c": "npm run setup:02c --workspace=@the-ecom-buddy/backend",
     "verify:02c": "npm run verify:02c --workspace=@the-ecom-buddy/backend",
+    "setup:02d-a": "npm run setup:02d-a --workspace=@the-ecom-buddy/backend",
+    "verify:02d-a": "npm run verify:02d-a --workspace=@the-ecom-buddy/backend",
     "dev:backend": "npm run dev --workspace=@the-ecom-buddy/backend",
     "dev:storefront": "npm run dev --workspace=@the-ecom-buddy/storefront",
     "build:backend": "npm run build --workspace=@the-ecom-buddy/backend",

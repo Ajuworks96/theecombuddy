@@ -220,6 +220,12 @@ const COLLECTIONS = [
 ];
 
 export default async function seedDatabase({ container }: { container: MedusaContainer }) {
+  // Production Safety Guard: Prevent accidental demo catalog creation on live client production stores
+  if (process.env.NODE_ENV === "production" && process.env.FORCE_SEED !== "1") {
+    console.warn("[seed] SAFETY GUARD: Seed generator cannot be executed on a production client installation without explicit FORCE_SEED=1. Aborting.");
+    return;
+  }
+
   const query = container.resolve(ContainerRegistrationKeys.REMOTE_QUERY);
   const productModule = container.resolve(Modules.PRODUCT);
   const salesChannelModule = container.resolve(Modules.SALES_CHANNEL);

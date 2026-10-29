@@ -174,3 +174,4 @@ In strict compliance with architectural boundaries:
 * **No Razorpay or Cashfree payment integration** has been executed in this milestone; full payment provider implementation, webhook idempotency, and complete cart order completion belong strictly to **Milestone 02D**.
 * **No storefront UI features or currency selector components** have been built; those belong strictly to **Milestone 04**.
 * All files, database records, and Git history have been preserved.
+

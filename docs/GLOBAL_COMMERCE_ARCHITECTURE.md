@@ -202,3 +202,4 @@ Payment processing is segregated through Medusa v2's `AbstractPaymentProvider` i
 3. **Cross-Border Regulatory Compliance (India)**:
    - Orders shipped outside India qualify as zero-rated export of goods under Section 16 of the IGST Act under Letter of Undertaking (LUT) without payment of IGST.
    - Invoices include mandatory export declarations, merchant IEC (Import Export Code), and customer shipping country.
+

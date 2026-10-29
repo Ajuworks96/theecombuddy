@@ -64,9 +64,12 @@ graph LR
 
 The platform is designed with an **India-first baseline configuration** while providing global localization toggles:
 
-### 4.1 Currency & Pricing
-* **Primary Currency**: Indian Rupee (`INR` / `₹`) configured as the default currency, formatted with the Indian numbering system (e.g., `₹1,49,999.00`).
-* **Multi-Currency Capability**: Full support for international pricing tiers (e.g., `USD`, `EUR`, `GBP`) via Medusa v2's Price List Module.
+### 4.1 Currency, Markets & Global Selling
+* **Primary / Base Currency**: Indian Rupee (`INR` / `₹`) configured as the default merchant base currency, formatted with the Indian numbering system (e.g., `₹1,49,999.00`).
+* **Multi-Region & Multi-Market Support**: Initial pre-configured markets for India (`inr`), United States (`usd`), UAE (`aed`), United Kingdom (`gbp`), and European Union (`eur`).
+* **Price Resolution**: Variant prices resolved via official Medusa v2 Pricing Module. Supports merchant-defined fixed international prices (Priority 1) and automated FX conversion adapter (Priority 2) with Redis TTL cache and stale rate protection (see `docs/GLOBAL_COMMERCE_ARCHITECTURE.md`).
+* **Storefront Currency Selection**: Automatic market suggestion based on customer location (Geo-IP headers) with explicit manual country/currency dropdown selector.
+* **Order Financial Snapshots**: Orders record immutable exchange-rate snapshots at completion. Receipts and refunds execute in the customer's original transaction currency, while merchant reporting reflects base INR values.
 
 ### 4.2 Payment Gateways
 * **Razorpay Integration**: Primary payment gateway supporting:

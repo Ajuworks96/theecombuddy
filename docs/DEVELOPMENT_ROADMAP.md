@@ -52,22 +52,36 @@ flowchart TD
 
 ---
 
-### Milestone 02: Engine Setup, 500+ Seed Generator & Early Vertical-Slice Test
+### Milestone 02: Engine Setup, 500+ Seed Generator, Multi-Currency Cart & Early Vertical Slice
 * **Prerequisites**: Approval of Milestone 01.
 * **Scope**:
-  * Initialize monorepo workspace (`apps/backend`, `apps/storefront`, `packages/*`).
-  * Initialize Medusa v2 core engine with PostgreSQL 16 and Redis 7.
-  * Implement standardized custom DML modules:
-    * `store-customizer` (`carousel_slide`, `theme_config`)
-    * `marketing-telemetry` (`marketing_config`)
-    * `india-tax` (`gst_product_detail` linked to `product`)
-    * `licensing` (`license_record`)
-  * Execute migration workflow: `medusa db:generate <module>`, `medusa db:migrate`, and rollback test.
-  * **Automated Seed Generator**: Generates at least **500 distinct products** with multi-attribute variants (yielding 1,500–4,000+ SKUs), realistic INR pricing (`₹`), HSN codes, categories, and image galleries.
-  * **Early Vertical-Slice Integration Test**: An automated end-to-end integration test executing:
-    $$\text{Create Product} \rightarrow \text{Set Stock} \rightarrow \text{Add to Cart} \rightarrow \text{Place Order (Creates Reservations)} \rightarrow \text{Fulfill (Consumes Stock \& Releases Reservations)}$$
-    and testing cancellation (releases unfulfilled reservations) and payment failure compensation.
-* **Quality Gate**: Vertical slice test passes 100%; seed generator populates 500+ products cleanly; database query benchmarks execute under 100ms.
+  * **02A (Monorepo & Foundation - COMPLETED)**:
+    * Initialize monorepo workspace (`apps/backend`, `apps/storefront`, `packages/*`).
+    * Medusa v2 core engine with PostgreSQL 18 and Redis 7.
+    * Publishable API key and sales channel configuration.
+  * **02B (Catalog, Inventory & Seed Data - COMPLETED)**:
+    * Automated Seed Generator: **520 distinct products** with multi-attribute variants (**1,235 variants**), realistic INR pricing (`₹`), HSN codes, categories, and inventory levels.
+    * 1:1 variant-to-inventory level reconciliation.
+  * **02C (Cart, Shipping, Checkout & Multi-Region Foundation - CURRENT)**:
+    * Official Medusa v2 cart workflows: create, retrieve, update line items, remove items, cart persistence.
+    * Stock availability validation and out-of-stock rejection.
+    * Concurrent cart update resilience.
+    * Shipping profiles, service zones, and fulfillment options.
+    * Guest checkout address validation (shipping & billing).
+    * Server-side pricing, tax calculation (18% GST), promotions (`WELCOME10`, `FLAT100`), and order total calculation formula:
+      $$\text{Total} = \text{Subtotal} + \text{Shipping} + \text{Tax} - \text{Discount}$$
+    * **Global Commerce Addendum**:
+      * Multi-region and multi-currency configuration for 5 key markets: India (`inr`), United States (`usd`), UAE (`aed`), United Kingdom (`gbp`), European Union (`eur`).
+      * Variant multi-currency pricing sets.
+      * Dynamic market switching with real-time recalculation of line-item unit prices and currency-locked totals.
+      * Region-specific shipping options and extensible tax regions.
+      * Currency-safe monetary arithmetic with standard precision.
+  * **02D (Payment Providers, Webhook Reconciliation & Complete Order Flow - UPCOMING)**:
+    * Provider-adapter pattern for **Razorpay** and **Cashfree**.
+    * Multi-currency capture validation (foreign currency processing enabled only when gateway supports it).
+    * Complete cart workflow (`completeCartWorkflow`) creating inventory reservations.
+    * Webhook idempotency, payment failure compensation, and exchange-rate snapshots.
+* **Quality Gate**: Automated test suites for 02A, 02B, and 02C pass 100%; multi-currency cart creation, variant price resolution, and market switching validated without error.
 
 ---
 
@@ -77,9 +91,10 @@ flowchart TD
   * Build Merchant Onboarding Wizard (**Reference 01: Merchant onboarding reference**).
   * Build High-Density Catalog Management (**Reference 06: ColorPixel merchant dashboard**).
   * Build Variant Matrix & HSN Creator (**Reference 07: SalesSync product creation interface**).
+  * Build Merchant Global Selling Settings (enable/disable target international markets, configure fixed prices, set FX markup buffer $\mu_{\text{FX}}$).
   * Build Dynamic Carousel Slide Customizer (pre-seeded with 6 default slides, full add/edit/reorder controls).
   * **Early Deployment Validation**: Build Docker images for backend and database; validate container startup, persistent volume mounting, and database migrations on a clean test environment.
-* **Quality Gate**: Non-technical merchant can create products, adjust stock, and edit carousel slides via admin UI; Docker container boots and migrates cleanly.
+* **Quality Gate**: Non-technical merchant can create products, adjust stock, configure international prices, and edit carousel slides via admin UI; Docker container boots and migrates cleanly.
 
 ---
 
@@ -90,13 +105,14 @@ flowchart TD
   * High-Conversion Product Detail Page (**Reference 03: Velora product details**).
   * Curated Collections & Storytelling (**Reference 04: Aero Step editorial storefront**).
   * Promotional Features & Banners (**Reference 05: Philox promotional layout**).
+  * Storefront Market/Currency Selector & Geo-IP auto-suggestion.
   * Slide-over Mini-Cart with dynamic Free Shipping progress bar.
   * **Foundational SEO Architecture**:
     * Dynamic metadata generation (`generateMetadata`) across products, categories, and static pages.
     * Strict canonical URL enforcement and filter/sort handling.
     * Schema.org JSON-LD structured data (`Product`, `Offer`, `BreadcrumbList`, `Organization`, `WebSite`).
     * Dynamic `robots.txt` and XML sitemaps (`/sitemap.xml` using `<loc>` and `<lastmod>`).
-* **Quality Gate**: Mobile & Desktop Google Lighthouse score $\ge 90$; visual fidelity aligned with reference screenshots.
+* **Quality Gate**: Mobile & Desktop Google Lighthouse score $\ge 90$; visual fidelity aligned with reference screenshots; seamless multi-currency cart updates from currency picker.
 
 ---
 

@@ -9,6 +9,8 @@
     "dev": "medusa develop",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "verify": "medusa exec ./src/scripts/verify-milestone-02b.ts",
+    "setup:02c": "medusa exec ./src/scripts/setup-milestone-02c.ts",
+    "verify:02c": "medusa exec ./src/scripts/verify-milestone-02c.ts",
     "db:migrate": "medusa db:migrate",
     "typecheck": "tsc --noEmit"
   },

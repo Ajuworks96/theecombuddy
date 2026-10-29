@@ -12,10 +12,11 @@
 
 The Ecom Buddy architecture is built upon four fundamental principles:
 
-1. **Strict Data & Engine Integrity**: We strictly adhere to **Medusa v2**'s official modular architecture. We do **not** manually create, alter, or replace Medusa's core database tables. All core commerce domain models (products, variants, inventory, carts, orders, pricing, taxes) are owned and migrated solely by Medusa's official modules.
-2. **Supported Extension Mechanisms & Migration Workflow**: Custom business requirements (dynamic carousel slides, brand styling tokens, marketing credentials, India-specific GST/HSN attributes, and licensing verification) are encapsulated within **officially registered Medusa v2 custom modules** utilizing Medusa's Data Modeling Layer (DML) and module links (`defineLink`). Database migrations for custom modules are generated via `medusa db:generate` and executed via `medusa db:migrate`.
-3. **Decoupled Headless Experience**: The merchant-facing storefront is completely separated from the commerce backend, powered by **Next.js 15 (App Router)** utilizing React Server Components (RSC) and on-demand Incremental Static Regeneration (ISR).
-4. **Operational Simplicity for Independent Client Deployments**: Each merchant client receives an isolated deployment stack orchestratable via **Docker Compose** with automated SSL termination (Caddy) and persistent PostgreSQL 16 and Redis 7 volumes.
+1. **Strict Data & Engine Integrity**: We strictly adhere to **Medusa v2**'s official modular architecture. We do **not** manually create, alter, or replace Medusa's core database tables. All core commerce domain models (products, variants, inventory, carts, orders, pricing, taxes, regions) are owned and migrated solely by Medusa's official modules.
+2. **Supported Extension Mechanisms & Migration Workflow**: Custom business requirements (dynamic carousel slides, brand styling tokens, marketing credentials, India-specific GST/HSN attributes, licensing verification, and international exchange-rate snapshots) are encapsulated within **officially registered Medusa v2 custom modules** utilizing Medusa's Data Modeling Layer (DML) and module links (`defineLink`). Database migrations for custom modules are generated via `medusa db:generate` and executed via `medusa db:migrate`.
+3. **Global Multi-Region & Multi-Currency Commerce**: Support Indian direct-to-consumer merchants selling domestically in INR and internationally in USD, AED, GBP, and EUR via official Medusa Region and Pricing modules, deterministic price hierarchies, and strict cross-border payment rules (see `docs/GLOBAL_COMMERCE_ARCHITECTURE.md`).
+4. **Decoupled Headless Experience**: The merchant-facing storefront is completely separated from the commerce backend, powered by **Next.js 15 (App Router)** utilizing React Server Components (RSC) and on-demand Incremental Static Regeneration (ISR).
+5. **Operational Simplicity for Independent Client Deployments**: Each merchant client receives an isolated deployment stack orchestratable via **Docker Compose** with automated SSL termination (Caddy) and persistent PostgreSQL 16 and Redis 7 volumes.
 
 ```mermaid
 flowchart TB
@@ -90,6 +91,7 @@ All core commerce tables are owned and managed exclusively by Medusa v2's offici
 * **Payment Module (`@medusajs/medusa/payment`)**: Owns `payment_collection`, `payment_session`, `payment`, `refund`.
 * **Fulfillment Module (`@medusajs/medusa/fulfillment`)**: Owns `shipping_option`, `fulfillment`, `tracking_info`.
 * **Tax Module (`@medusajs/medusa/tax`)**: Owns `tax_region`, `tax_rate`, `tax_rate_rule`.
+* **Region Module (`@medusajs/medusa/region`)**: Owns `region`, `country`.
 * **Customer Module (`@medusajs/medusa/customer`)**: Owns `customer`, `customer_address`, `customer_group`.
 * **Promotion Module (`@medusajs/medusa/promotion`)**: Owns `promotion`, `campaign`, `promotion_rule`.
 
@@ -179,3 +181,21 @@ The GST calculation engine evaluates tax based on the merchant fulfillment wareh
 ### 5.1 Independent Verification of PCI DSS Eligibility
 * The platform employs hosted iframe elements (**Stripe Elements** / **Razorpay Checkout**) so that no raw payment card data (PAN, CVV) touches application servers or databases.
 * **Independent Verification Required**: In accordance with PCI Security Standards Council guidance, PCI DSS SAQ-A eligibility cannot be claimed automatically. Actual qualification depends on the merchant's end-to-end deployment architecture, Content Security Policy (CSP) headers, payment integration implementation, and hosting environment, and must be independently evaluated and verified by the merchant via the formal PCI DSS SAQ-A Self-Assessment Questionnaire.
+
+---
+
+## 6. Global Commerce, Multi-Currency & Payment Provider Adapter
+
+Refer to `docs/GLOBAL_COMMERCE_ARCHITECTURE.md` for comprehensive details.
+
+### 6.1 Multi-Currency Foundation & Market Registry
+* **Base Merchant Currency**: `inr` (Indian Rupee, ₹).
+* **International Markets**: United States (`usd`, $), United Arab Emirates (`aed`, AED), United Kingdom (`gbp`, £), European Union (`eur`, €).
+* **Price Resolution**: Priority 1 merchant fixed price override; Priority 2 automated FX conversion adapter (`IFXRatesProvider`) with Redis 12h TTL and 48h circuit breaker.
+* **Financial Integrity**: Zero floating-point arithmetic. Standard currency precision (2 decimals). Server-side authoritative price resolution.
+
+### 6.2 Payment Gateway Provider Adapters (Milestone 02D)
+* **Provider Adapters**: Segregated via Medusa v2 `AbstractPaymentProvider` for **Razorpay** (domestic UPI/Cards, international cards upon export activation) and **Cashfree**.
+* **Zero Mocking Policy**: Foreign currency payments are never simulated. Transactions execute only when the connected gateway supports the currency.
+* **Customer Transparency**: If the gateway only settles in INR, customer explicitly reviews and confirms the INR equivalent amount prior to payment authorization.
+* **Post-Purchase Accounting**: Orders store an immutable `exchange_rate_snapshot`. Refunds and chargebacks execute strictly in the original transaction currency, while merchant reports compute INR equivalents via the historical snapshot.

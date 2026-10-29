@@ -6,6 +6,65 @@ import {
   updateProductsWorkflow,
 } from "@medusajs/core-flows";
 
+interface ProductRecord {
+  id: string;
+  title: string;
+  handle: string;
+  status: string;
+  collection_id?: string | null;
+}
+
+interface VariantRecord {
+  id: string;
+  title: string;
+  sku: string | null;
+  product_id: string;
+}
+
+interface CategoryRecord {
+  id: string;
+  name: string;
+  handle: string;
+}
+
+interface CollectionRecord {
+  id: string;
+  title: string;
+  handle: string;
+}
+
+interface InventoryLevelRecord {
+  id: string;
+  inventory_item_id: string;
+  location_id: string;
+  stocked_quantity: number;
+  reserved_quantity: number;
+}
+
+interface StoreProductListResponse {
+  products: Array<{
+    id: string;
+    title: string;
+    handle: string;
+    variants: Array<{
+      id: string;
+      title: string;
+      sku: string;
+      calculated_price?: {
+        calculated_amount: number;
+        currency_code: string;
+      };
+      prices?: Array<{
+        amount: number;
+        currency_code: string;
+      }>;
+    }>;
+  }>;
+  count: number;
+  limit: number;
+  offset: number;
+}
+
 export default async function verifyMilestone02B({ container }: { container: MedusaContainer }) {
   console.log("==============================================================================");
   console.log("[verify] THE ECOM BUDDY — MILESTONE 02B FUNCTIONAL VERIFICATION SUITE");
@@ -37,20 +96,20 @@ export default async function verifyMilestone02B({ container }: { container: Med
   // -------------------------------------------------------------------------
   console.log("\n--- TEST SUITE 1: Catalog Capacity & Seed Integrity ---");
 
-  const allProducts = await query({
+  const allProducts = (await query({
     entryPoint: "product",
     fields: ["id", "title", "handle", "status", "collection_id"],
-  });
+  })) as ProductRecord[];
   assert(
     allProducts.length >= 500,
     "Minimum 500 distinct products requirement",
     `Total products found in database: ${allProducts.length}`
   );
 
-  const allVariants = await query({
+  const allVariants = (await query({
     entryPoint: "product_variant",
     fields: ["id", "title", "sku", "product_id"],
-  });
+  })) as VariantRecord[];
   assert(
     allVariants.length >= 1000,
     "Minimum 1,000 product variants requirement",
@@ -75,29 +134,29 @@ export default async function verifyMilestone02B({ container }: { container: Med
   );
 
   // Check categories & collections
-  const categories = await query({
+  const categories = (await query({
     entryPoint: "product_category",
     fields: ["id", "name", "handle"],
-  });
+  })) as CategoryRecord[];
   assert(
     categories.length >= 8,
     "Minimum 8 Product Categories",
-    `Categories count: ${categories.length} (${categories.map((c: any) => c.name).join(", ")})`
+    `Categories count: ${categories.length} (${categories.map((c) => c.name).join(", ")})`
   );
 
-  const collections = await query({
+  const collections = (await query({
     entryPoint: "product_collection",
     fields: ["id", "title", "handle"],
-  });
+  })) as CollectionRecord[];
   assert(
     collections.length >= 4,
     "Minimum 4 Collections",
-    `Collections count: ${collections.length} (${collections.map((c: any) => c.title).join(", ")})`
+    `Collections count: ${collections.length} (${collections.map((c) => c.title).join(", ")})`
   );
 
   // Check published vs draft distribution (~90% published, ~10% draft)
-  const publishedProducts = allProducts.filter((p: any) => p.status === "published");
-  const draftProducts = allProducts.filter((p: any) => p.status === "draft");
+  const publishedProducts = allProducts.filter((p) => p.status === "published");
+  const draftProducts = allProducts.filter((p) => p.status === "draft");
   assert(
     publishedProducts.length > 0 && draftProducts.length > 0,
     "Both Published and Draft Product Statuses Present",
@@ -109,32 +168,32 @@ export default async function verifyMilestone02B({ container }: { container: Med
   // -------------------------------------------------------------------------
   console.log("\n--- TEST SUITE 2: Inventory & Stock Location Audit ---");
 
-  const stockLocations = await query({
+  const stockLocations = (await query({
     entryPoint: "stock_location",
     fields: ["id", "name", "address.city", "address.country_code"],
-  });
-  const indiaWarehouse = stockLocations.find((loc: any) => loc.name === "India Central Warehouse");
+  })) as Array<{ id: string; name: string; address?: { city?: string; country_code?: string } }>;
+  const indiaWarehouse = stockLocations.find((loc) => loc.name === "India Central Warehouse");
   assert(
     Boolean(indiaWarehouse),
     "India Central Warehouse Stock Location Present",
     `Location ID: ${indiaWarehouse?.id}, City: ${indiaWarehouse?.address?.city}, Country: ${indiaWarehouse?.address?.country_code}`
   );
 
-  const inventoryLevels = await query({
+  const inventoryLevels = (await query({
     entryPoint: "inventory_level",
     fields: ["id", "inventory_item_id", "location_id", "stocked_quantity", "reserved_quantity"],
-  });
+  })) as InventoryLevelRecord[];
   assert(
     inventoryLevels.length >= 1000,
     "Inventory levels configured for all seeded variant inventory items",
     `Total inventory levels: ${inventoryLevels.length}`
   );
 
-  const outOfStockItems = inventoryLevels.filter((lvl: any) => lvl.stocked_quantity === 0);
+  const outOfStockItems = inventoryLevels.filter((lvl) => lvl.stocked_quantity === 0);
   const lowStockItems = inventoryLevels.filter(
-    (lvl: any) => lvl.stocked_quantity > 0 && lvl.stocked_quantity <= 10
+    (lvl) => lvl.stocked_quantity > 0 && lvl.stocked_quantity <= 10
   );
-  const normalStockItems = inventoryLevels.filter((lvl: any) => lvl.stocked_quantity > 10);
+  const normalStockItems = inventoryLevels.filter((lvl) => lvl.stocked_quantity > 10);
 
   assert(
     outOfStockItems.length > 0,
@@ -281,7 +340,7 @@ export default async function verifyMilestone02B({ container }: { container: Med
     `Status: ${resPage1.status}, Latency: ${latencyPage1}ms`
   );
 
-  const bodyPage1 = (await resPage1.json()) as any;
+  const bodyPage1 = (await resPage1.json()) as StoreProductListResponse;
   assert(
     bodyPage1.products && bodyPage1.products.length === 50,
     "Store API returns 50 products for limit=50",
@@ -300,9 +359,9 @@ export default async function verifyMilestone02B({ container }: { container: Med
     "Store API GET /store/products (Page 2: offset 50) returns HTTP 200",
     `Status: ${resPage2.status}`
   );
-  const bodyPage2 = (await resPage2.json()) as any;
-  const page1Ids = new Set(bodyPage1.products.map((p: any) => p.id));
-  const page2HasOverlap = bodyPage2.products.some((p: any) => page1Ids.has(p.id));
+  const bodyPage2 = (await resPage2.json()) as StoreProductListResponse;
+  const page1Ids = new Set(bodyPage1.products.map((p) => p.id));
+  const page2HasOverlap = bodyPage2.products.some((p) => page1Ids.has(p.id));
   assert(
     !page2HasOverlap && bodyPage2.products.length === 50,
     "Store API pagination offset behaves correctly with zero overlap",
@@ -317,7 +376,7 @@ export default async function verifyMilestone02B({ container }: { container: Med
     `Store API Category Filtering for "${testCategory.name}" returns HTTP 200`,
     `Status: ${resCatFilter.status}`
   );
-  const bodyCatFilter = (await resCatFilter.json()) as any;
+  const bodyCatFilter = (await resCatFilter.json()) as StoreProductListResponse;
   assert(
     bodyCatFilter.products.length > 0,
     "Category filter returns relevant filtered products",
@@ -328,7 +387,7 @@ export default async function verifyMilestone02B({ container }: { container: Med
   const sampleProduct = bodyPage1.products[0];
   const sampleVariant = sampleProduct.variants[0];
   assert(
-    Boolean(sampleVariant.calculated_price || sampleVariant.prices?.some((p: any) => p.currency_code === "inr")),
+    Boolean(sampleVariant.calculated_price || sampleVariant.prices?.some((p) => p.currency_code === "inr")),
     "Product variant contains valid INR pricing information",
     `Variant SKU: ${sampleVariant.sku}, Calculated Price: ${JSON.stringify(sampleVariant.calculated_price?.calculated_amount ?? sampleVariant.prices?.[0]?.amount)} INR`
   );

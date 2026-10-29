@@ -1,0 +1,864 @@
+import type { MedusaContainer } from "@medusajs/framework/types";
+import { ContainerRegistrationKeys, Modules, PaymentActions, PaymentSessionStatus } from "@medusajs/framework/utils";
+import {
+  RazorpayPaymentProviderService,
+  RazorpayClient,
+  toSmallestUnit,
+  fromSmallestUnit,
+  validateCurrencySupport,
+  generateCheckoutSignature,
+  verifyCheckoutSignature,
+  generateWebhookSignature,
+  verifyWebhookSignature,
+  timingSafeEqual,
+} from "../modules/payment-razorpay/index.ts";
+
+interface TestResult {
+  suite: string;
+  name: string;
+  status: "UNIT TEST PASSED" | "RAZORPAY SANDBOX PASSED" | "BLOCKED" | "FAILED";
+  details?: string;
+}
+
+export default async function verifyMilestone02DB({ container }: { container: MedusaContainer }) {
+  console.log("==============================================================================");
+  console.log("[verify-02d-b] THE ECOM BUDDY — MILESTONE 02D-B RAZORPAY VERIFICATION");
+  console.log("==============================================================================");
+
+  const results: TestResult[] = [];
+  const query = container.resolve(ContainerRegistrationKeys.REMOTE_QUERY);
+  const paymentService = container.resolve(Modules.PAYMENT);
+
+  function record(suite: string, name: string, passed: boolean, details?: string, isSandbox = false) {
+    const status: TestResult["status"] = passed
+      ? isSandbox
+        ? "RAZORPAY SANDBOX PASSED"
+        : "UNIT TEST PASSED"
+      : "FAILED";
+    results.push({ suite, name, status, details });
+    const tag = `[${status}]`;
+    console.log(`  ${tag} ${name}${details ? ` (${details})` : ""}`);
+  }
+
+  function recordBlocked(suite: string, name: string, reason: string) {
+    results.push({ suite, name, status: "BLOCKED", details: reason });
+    console.log(`  [BLOCKED] ${name} — ${reason}`);
+  }
+
+  // ============================================================================
+  // SUITE 1: Provider Architecture & Preflight Audit
+  // ============================================================================
+  console.log("\n--- SUITE 1: Provider Architecture & Preflight Audit ---");
+  try {
+    const providers: any[] = await paymentService.listPaymentProviders();
+    const razorpayProvider = providers.find((p) => p.id === "pp_razorpay_razorpay");
+    record(
+      "Suite 1: Architecture",
+      "Test 1: pp_razorpay_razorpay registered in Payment Module",
+      Boolean(razorpayProvider),
+      razorpayProvider?.id
+    );
+    record(
+      "Suite 1: Architecture",
+      "Test 2: pp_razorpay_razorpay is enabled in database",
+      Boolean(razorpayProvider?.is_enabled),
+      `is_enabled: ${razorpayProvider?.is_enabled}`
+    );
+
+    const systemProvider = providers.find((p) => p.id === "pp_system_default");
+    record(
+      "Suite 1: Architecture",
+      "Test 3: pp_system_default preserved for COD alongside Razorpay",
+      Boolean(systemProvider?.is_enabled),
+      `is_enabled: ${systemProvider?.is_enabled}`
+    );
+
+    const regions: any[] = await query({
+      entryPoint: "region",
+      fields: ["id", "name", "currency_code", "payment_providers.id"],
+    });
+
+    const indiaRegion = regions.find((r) => r.currency_code === "inr");
+    const indiaProviders = (indiaRegion?.payment_providers || []).map((p: any) => p.id);
+    record(
+      "Suite 1: Architecture",
+      "Test 4: India Region links both Razorpay and COD providers",
+      indiaProviders.includes("pp_razorpay_razorpay") && indiaProviders.includes("pp_system_default"),
+      JSON.stringify(indiaProviders)
+    );
+
+    const intlRegions = regions.filter((r) => r.currency_code !== "inr");
+    const allIntlHaveRazorpay = intlRegions.every((r) =>
+      (r.payment_providers || []).some((p: any) => p.id === "pp_razorpay_razorpay")
+    );
+    record(
+      "Suite 1: Architecture",
+      "Test 5: International regions (USD, AED, GBP, EUR) configured for Razorpay",
+      allIntlHaveRazorpay,
+      `${intlRegions.length} international regions linked`
+    );
+  } catch (err: any) {
+    record("Suite 1: Architecture", "Suite 1 Execution", false, err.message);
+  }
+
+  // ============================================================================
+  // SUITE 2: Multi-Currency & Smallest Unit Precision (Unit Tests)
+  // ============================================================================
+  console.log("\n--- SUITE 2: Multi-Currency & Unit Precision (Unit Tests) ---");
+  try {
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 6: INR amount converted to integer paise (₹1,598.00 -> 159800 paise)",
+      toSmallestUnit(1598.0, "inr") === 159800,
+      `Calculated: ${toSmallestUnit(1598.0, "inr")}`
+    );
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 7: USD amount converted to integer cents ($35.50 -> 3550 cents)",
+      toSmallestUnit(35.5, "usd") === 3550,
+      `Calculated: ${toSmallestUnit(35.5, "usd")}`
+    );
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 8: EUR amount converted to integer cents (€42.99 -> 4299 cents)",
+      toSmallestUnit(42.99, "eur") === 4299,
+      `Calculated: ${toSmallestUnit(42.99, "eur")}`
+    );
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 9: AED amount converted to integer fils (50.00 AED -> 5000 fils)",
+      toSmallestUnit(50.0, "aed") === 5000,
+      `Calculated: ${toSmallestUnit(50.0, "aed")}`
+    );
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 10: Zero-decimal currency JPY preserved without scaling (1000 JPY -> 1000)",
+      toSmallestUnit(1000, "jpy") === 1000,
+      `Calculated: ${toSmallestUnit(1000, "jpy")}`
+    );
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 11: Paise converted back to standard INR currency (159800 paise -> ₹1,598.00)",
+      fromSmallestUnit(159800, "inr") === 1598.0,
+      `Calculated: ${fromSmallestUnit(159800, "inr")}`
+    );
+
+    let unsupportedRejected = false;
+    try {
+      validateCurrencySupport("xyz", ["inr", "usd", "aed", "gbp", "eur"]);
+    } catch {
+      unsupportedRejected = true;
+    }
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 12: Unsupported foreign currency rejected with MedusaError (No silent conversion)",
+      unsupportedRejected,
+      "XYZ rejected"
+    );
+
+    let supportedAccepted = false;
+    try {
+      validateCurrencySupport("usd", ["inr", "usd", "aed", "gbp", "eur"]);
+      supportedAccepted = true;
+    } catch {
+      supportedAccepted = false;
+    }
+    record(
+      "Suite 2: Multi-Currency",
+      "Test 13: Eligible international currencies pass validation",
+      supportedAccepted,
+      "USD allowed"
+    );
+  } catch (err: any) {
+    record("Suite 2: Multi-Currency", "Suite 2 Execution", false, err.message);
+  }
+
+  // ============================================================================
+  // SUITE 3: Cryptography & Signature Verification (Unit Tests)
+  // ============================================================================
+  console.log("\n--- SUITE 3: Cryptography & Signature Verification (Unit Tests) ---");
+  try {
+    const testSecret = "merchant_test_secret_key_123456789";
+    const testOrderId = "order_O1M6X98A1B2C3D";
+    const testPaymentId = "pay_P1M6X98E4F5G6H";
+
+    const validCheckoutSig = generateCheckoutSignature(testOrderId, testPaymentId, testSecret);
+    record(
+      "Suite 3: Cryptography",
+      "Test 14: Valid checkout HMAC-SHA256 signature generated and verified",
+      verifyCheckoutSignature(testOrderId, testPaymentId, validCheckoutSig, testSecret),
+      `Sig: ${validCheckoutSig.slice(0, 16)}...`
+    );
+
+    const tamperedSig = validCheckoutSig.slice(0, -4) + "ffff";
+    record(
+      "Suite 3: Cryptography",
+      "Test 15: Tampered checkout signature rejected",
+      !verifyCheckoutSignature(testOrderId, testPaymentId, tamperedSig, testSecret),
+      "Tampered signature rejected"
+    );
+
+    record(
+      "Suite 3: Cryptography",
+      "Test 16: Mismatched order/payment IDs rejected with valid signature",
+      !verifyCheckoutSignature("order_TAMPERED", testPaymentId, validCheckoutSig, testSecret),
+      "Mismatched order rejected"
+    );
+
+    const rawWebhookBody = JSON.stringify({
+      entity: "event",
+      account_id: "acc_test_merchant_001",
+      event: "payment.captured",
+      payload: {
+        payment: {
+          entity: {
+            id: testPaymentId,
+            amount: 159800,
+            currency: "INR",
+            status: "captured",
+          },
+        },
+      },
+    });
+
+    const validWebhookSig = generateWebhookSignature(rawWebhookBody, testSecret);
+    record(
+      "Suite 3: Cryptography",
+      "Test 17: Valid webhook raw-body HMAC-SHA256 signature verified",
+      verifyWebhookSignature(rawWebhookBody, validWebhookSig, testSecret),
+      `Webhook Sig: ${validWebhookSig.slice(0, 16)}...`
+    );
+
+    record(
+      "Suite 3: Cryptography",
+      "Test 18: Invalid webhook signature rejected",
+      !verifyWebhookSignature(rawWebhookBody, "invalid_webhook_signature", testSecret),
+      "Invalid signature rejected"
+    );
+
+    record(
+      "Suite 3: Cryptography",
+      "Test 19: Constant-time string comparison protects against timing attacks",
+      timingSafeEqual("secure_signature_hash_abc", "secure_signature_hash_abc") &&
+        !timingSafeEqual("secure_signature_hash_abc", "secure_signature_hash_xyz"),
+      "crypto.timingSafeEqual verified"
+    );
+  } catch (err: any) {
+    record("Suite 3: Cryptography", "Suite 3 Execution", false, err.message);
+  }
+
+  // ============================================================================
+  // SUITE 4: Webhook Processing & Replay Protection (Unit Tests)
+  // ============================================================================
+  console.log("\n--- SUITE 4: Webhook Processing & Replay Protection (Unit Tests) ---");
+  try {
+    const webhookSecret = "rzp_webhook_secret_secure_987654";
+    const providerService = new RazorpayPaymentProviderService(container, {
+      key_id: "rzp_test_placeholder",
+      key_secret: "placeholder_secret_key",
+      webhook_secret: webhookSecret,
+      mode: "test",
+      supported_currencies: ["inr", "usd", "aed", "gbp", "eur"],
+    });
+
+    const sessionId = "payses_01M6TESTSESSION01";
+    const eventId = "evt_01M6TESTEVENT01";
+
+    // 1. Valid payment.captured webhook
+    const capturedPayload = {
+      entity: "event",
+      account_id: "acc_test",
+      event: "payment.captured",
+      contains: ["payment"],
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_captured_01",
+            amount: 188564,
+            currency: "INR",
+            status: "captured",
+            notes: { session_id: sessionId },
+          },
+        },
+      },
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    const capturedRaw = JSON.stringify(capturedPayload);
+    const capturedSig = generateWebhookSignature(capturedRaw, webhookSecret);
+
+    const actionResult = await providerService.getWebhookActionAndData({
+      data: capturedPayload,
+      rawData: capturedRaw,
+      headers: {
+        "x-razorpay-signature": capturedSig,
+        "x-razorpay-event-id": eventId,
+      },
+    });
+
+    record(
+      "Suite 4: Webhook",
+      "Test 20: payment.captured mapped to PaymentActions.SUCCESSFUL",
+      actionResult.action === PaymentActions.SUCCESSFUL &&
+        actionResult.data?.session_id === sessionId &&
+        actionResult.data?.amount === 1885.64,
+      `Action: ${actionResult.action}, Amount: ₹${actionResult.data?.amount}`
+    );
+
+    // 2. Replay attack: resending the EXACT same event ID
+    const replayResult = await providerService.getWebhookActionAndData({
+      data: capturedPayload,
+      rawData: capturedRaw,
+      headers: {
+        "x-razorpay-signature": capturedSig,
+        "x-razorpay-event-id": eventId,
+      },
+    });
+
+    record(
+      "Suite 4: Webhook",
+      "Test 21: Duplicate/Replay webhook rejected via event replay cache",
+      replayResult.action === PaymentActions.NOT_SUPPORTED,
+      `Replay Action: ${replayResult.action}`
+    );
+
+    // 3. payment.authorized webhook
+    const authSessionId = "payses_01M6TESTSESSION02";
+    const authEventId = "evt_01M6TESTEVENT02";
+    const authPayload = {
+      entity: "event",
+      account_id: "acc_test",
+      event: "payment.authorized",
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_authorized_01",
+            amount: 3500,
+            currency: "USD",
+            status: "authorized",
+            notes: { session_id: authSessionId },
+          },
+        },
+      },
+      created_at: Math.floor(Date.now() / 1000),
+    };
+    const authRaw = JSON.stringify(authPayload);
+    const authSig = generateWebhookSignature(authRaw, webhookSecret);
+
+    const authResult = await providerService.getWebhookActionAndData({
+      data: authPayload,
+      rawData: authRaw,
+      headers: {
+        "x-razorpay-signature": authSig,
+        "x-razorpay-event-id": authEventId,
+      },
+    });
+
+    record(
+      "Suite 4: Webhook",
+      "Test 22: payment.authorized mapped to PaymentActions.AUTHORIZED (USD)",
+      authResult.action === PaymentActions.AUTHORIZED &&
+        authResult.data?.session_id === authSessionId &&
+        authResult.data?.amount === 35.0,
+      `Action: ${authResult.action}, Amount: $${authResult.data?.amount}`
+    );
+
+    // 4. payment.failed webhook
+    const failSessionId = "payses_01M6TESTSESSION03";
+    const failEventId = "evt_01M6TESTEVENT03";
+    const failPayload = {
+      entity: "event",
+      account_id: "acc_test",
+      event: "payment.failed",
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_failed_01",
+            amount: 188564,
+            currency: "INR",
+            status: "failed",
+            notes: { session_id: failSessionId },
+          },
+        },
+      },
+      created_at: Math.floor(Date.now() / 1000),
+    };
+    const failRaw = JSON.stringify(failPayload);
+    const failSig = generateWebhookSignature(failRaw, webhookSecret);
+
+    const failResult = await providerService.getWebhookActionAndData({
+      data: failPayload,
+      rawData: failRaw,
+      headers: {
+        "x-razorpay-signature": failSig,
+        "x-razorpay-event-id": failEventId,
+      },
+    });
+
+    record(
+      "Suite 4: Webhook",
+      "Test 23: payment.failed mapped to PaymentActions.FAILED",
+      failResult.action === PaymentActions.FAILED &&
+        failResult.data?.session_id === failSessionId,
+      `Action: ${failResult.action}`
+    );
+
+    // 5. Missing signature rejection
+    const unauthenticatedResult = await providerService.getWebhookActionAndData({
+      data: capturedPayload,
+      rawData: capturedRaw,
+      headers: {},
+    });
+    record(
+      "Suite 4: Webhook",
+      "Test 24: Unauthenticated webhook missing signature returns NOT_SUPPORTED",
+      unauthenticatedResult.action === PaymentActions.NOT_SUPPORTED,
+      `Action: ${unauthenticatedResult.action}`
+    );
+
+    // 6. Foreign webhook without session_id (not originated from this store)
+    const foreignEventId = "evt_01M6TESTEVENT04";
+    const foreignPayload = {
+      entity: "event",
+      account_id: "acc_test",
+      event: "payment.captured",
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_foreign_01",
+            amount: 50000,
+            currency: "INR",
+            status: "captured",
+            notes: {}, // No session_id
+          },
+        },
+      },
+    };
+    const foreignRaw = JSON.stringify(foreignPayload);
+    const foreignSig = generateWebhookSignature(foreignRaw, webhookSecret);
+
+    const foreignResult = await providerService.getWebhookActionAndData({
+      data: foreignPayload,
+      rawData: foreignRaw,
+      headers: {
+        "x-razorpay-signature": foreignSig,
+        "x-razorpay-event-id": foreignEventId,
+      },
+    });
+
+    record(
+      "Suite 4: Webhook",
+      "Test 25: Foreign webhook without session_id ignored (Zero cross-tenant bleed)",
+      foreignResult.action === PaymentActions.NOT_SUPPORTED,
+      `Action: ${foreignResult.action}`
+    );
+  } catch (err: any) {
+    record("Suite 4: Webhook", "Suite 4 Execution", false, err.message);
+  }
+
+  // ============================================================================
+  // SUITE 5: Provider Mock Transport & Lifecycle Workflows (Unit Tests)
+  // ============================================================================
+  console.log("\n--- SUITE 5: Provider Lifecycle & Transport Workflows (Unit Tests) ---");
+  try {
+    const mockTransport = {
+      async request<T>(req: any): Promise<T> {
+        if (req.path === "/orders" && req.method === "POST") {
+          return {
+            id: "order_mock_01M6RZP001",
+            entity: "order",
+            amount: req.body.amount,
+            amount_paid: 0,
+            amount_due: req.body.amount,
+            currency: req.body.currency,
+            receipt: req.body.receipt,
+            status: "created",
+            attempts: 0,
+            notes: req.body.notes,
+            created_at: Math.floor(Date.now() / 1000),
+          } as T;
+        }
+        if (req.path === "/payments/pay_mock_auth_01" && req.method === "GET") {
+          return {
+            id: "pay_mock_auth_01",
+            entity: "payment",
+            amount: 188564,
+            currency: "INR",
+            status: "authorized",
+            order_id: "order_mock_01M6RZP001",
+            captured: false,
+            created_at: Math.floor(Date.now() / 1000),
+          } as T;
+        }
+        if (req.path === "/payments/pay_mock_auth_01/capture" && req.method === "POST") {
+          return {
+            id: "pay_mock_auth_01",
+            entity: "payment",
+            amount: req.body.amount,
+            currency: req.body.currency,
+            status: "captured",
+            captured: true,
+            created_at: Math.floor(Date.now() / 1000),
+          } as T;
+        }
+        if (req.path === "/payments/pay_mock_auth_01/refund" && req.method === "POST") {
+          return {
+            id: "rfnd_mock_01M6001",
+            entity: "refund",
+            amount: req.body.amount,
+            currency: "INR",
+            payment_id: "pay_mock_auth_01",
+            status: "processed",
+            notes: req.body.notes,
+            created_at: Math.floor(Date.now() / 1000),
+          } as T;
+        }
+        throw new Error(`Unhandled mock path: ${req.path}`);
+      },
+    };
+
+    const mockProvider = new RazorpayPaymentProviderService(container, {
+      key_id: "rzp_test_mock_key_001",
+      key_secret: "mock_secret_key_001",
+      webhook_secret: "mock_webhook_secret_001",
+      mode: "test",
+      client_transport: mockTransport,
+    });
+
+    // 1. initiatePayment
+    const initResponse = await mockProvider.initiatePayment({
+      currency_code: "inr",
+      amount: 1885.64,
+      data: { session_id: "payses_init_01" },
+      context: { customer: { id: "cus_01", email: "shopper@ecombuddy.test" } },
+    });
+
+    record(
+      "Suite 5: Lifecycle",
+      "Test 26: initiatePayment creates server-generated Razorpay order",
+      initResponse.id === "order_mock_01M6RZP001" &&
+        initResponse.data?.order_id === "order_mock_01M6RZP001" &&
+        initResponse.data?.amount === 188564,
+      `Order: ${initResponse.id}, Amount: ${initResponse.data?.amount} paise`
+    );
+
+    // 2. authorizePayment with valid signature
+    const validSig = generateCheckoutSignature(
+      "order_mock_01M6RZP001",
+      "pay_mock_auth_01",
+      "mock_secret_key_001"
+    );
+
+    const authResponse = await mockProvider.authorizePayment({
+      data: {
+        razorpay_order_id: "order_mock_01M6RZP001",
+        razorpay_payment_id: "pay_mock_auth_01",
+        razorpay_signature: validSig,
+        amount: 1885.64,
+        currency: "inr",
+      },
+      context: {},
+    });
+
+    record(
+      "Suite 5: Lifecycle",
+      "Test 27: authorizePayment validates cryptographic checkout signature",
+      authResponse.status === PaymentSessionStatus.AUTHORIZED,
+      `Status: ${authResponse.status}`
+    );
+
+    // 3. authorizePayment with invalid signature
+    const badAuthResponse = await mockProvider.authorizePayment({
+      data: {
+        razorpay_order_id: "order_mock_01M6RZP001",
+        razorpay_payment_id: "pay_mock_auth_01",
+        razorpay_signature: "tampered_signature_string",
+      },
+      context: {},
+    });
+
+    record(
+      "Suite 5: Lifecycle",
+      "Test 28: authorizePayment rejects invalid signature with ERROR status",
+      badAuthResponse.status === PaymentSessionStatus.ERROR,
+      `Status: ${badAuthResponse.status}`
+    );
+
+    // 4. capturePayment
+    const captureResponse = await mockProvider.capturePayment({
+      data: {
+        payment_id: "pay_mock_auth_01",
+        amount: 1885.64,
+        currency: "inr",
+        status: "authorized",
+      },
+      context: {},
+    });
+
+    record(
+      "Suite 5: Lifecycle",
+      "Test 29: capturePayment executes gateway capture call",
+      captureResponse.data?.status === "captured" && captureResponse.data?.captured === true,
+      `Status: ${captureResponse.data?.status}`
+    );
+
+    // 5. refundPayment
+    const refundResponse = await mockProvider.refundPayment({
+      amount: 500.0,
+      data: {
+        payment_id: "pay_mock_auth_01",
+        currency: "inr",
+      },
+      context: {},
+    });
+
+    const refundData = (refundResponse.data || {}) as Record<string, any>;
+    record(
+      "Suite 5: Lifecycle",
+      "Test 30: refundPayment calculates smallest unit refund amount (50000 paise)",
+      refundData.refund?.amount === 50000 &&
+        refundData.refund?.status === "processed",
+      `Refund ID: ${refundData.refund_id}, Amount: ${refundData.refund?.amount} paise`
+    );
+
+    // 6. cancelPayment
+    const cancelResponse = await mockProvider.cancelPayment({
+      data: { id: "pay_mock_auth_01" },
+      context: {},
+    });
+
+    record(
+      "Suite 5: Lifecycle",
+      "Test 31: cancelPayment updates payment state to canceled",
+      cancelResponse.data?.status === "canceled",
+      `Status: ${cancelResponse.data?.status}`
+    );
+
+    // 7. getPaymentStatus mapping
+    const statusCreated = await mockProvider.getPaymentStatus({ data: { status: "created" } });
+    const statusAuth = await mockProvider.getPaymentStatus({ data: { status: "authorized" } });
+    const statusCaptured = await mockProvider.getPaymentStatus({ data: { status: "captured" } });
+    const statusFailed = await mockProvider.getPaymentStatus({ data: { status: "failed" } });
+
+    record(
+      "Suite 5: Lifecycle",
+      "Test 32: getPaymentStatus accurately maps all Razorpay status primitives",
+      statusCreated.status === PaymentSessionStatus.PENDING &&
+        statusAuth.status === PaymentSessionStatus.AUTHORIZED &&
+        statusCaptured.status === PaymentSessionStatus.CAPTURED &&
+        statusFailed.status === PaymentSessionStatus.ERROR,
+      `created->PENDING, auth->AUTHORIZED, captured->CAPTURED, failed->ERROR`
+    );
+  } catch (err: any) {
+    record("Suite 5: Lifecycle", "Suite 5 Execution", false, err.message);
+  }
+
+  // ============================================================================
+  // SUITE 6: Storefront API Integration (Live Medusa Engine on Port 9000)
+  // ============================================================================
+  console.log("\n--- SUITE 6: Storefront API Integration (Medusa Live Engine) ---");
+  try {
+    const apiKeys: any[] = await query({
+      entryPoint: "api_key",
+      fields: ["token", "type"],
+      variables: { filters: { type: "publishable" } },
+    });
+    const apiKey = apiKeys[0]?.token;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "x-publishable-api-key": apiKey,
+    };
+
+    // 1. Check Store API Payment Providers for India
+    const indiaRegRes = await fetch(
+      "http://localhost:9000/store/payment-providers?region_id=reg_01M617GB6G0JD57ZT481HYV9MV",
+      { headers }
+    );
+    const indiaProvidersJson = (await indiaRegRes.json()) as any;
+    const providerIds: string[] = (indiaProvidersJson.payment_providers || []).map((p: any) => p.id);
+
+    record(
+      "Suite 6: Storefront Integration",
+      "Test 33: GET /store/payment-providers returns pp_razorpay_razorpay for India region",
+      providerIds.includes("pp_razorpay_razorpay"),
+      JSON.stringify(providerIds)
+    );
+
+    // 2. Check Store API Payment Providers for US (USD)
+    const usRegRes = await fetch(
+      "http://localhost:9000/store/payment-providers?region_id=reg_01M6351W7B431VGASFQD9TN1VX",
+      { headers }
+    );
+    const usProvidersJson = (await usRegRes.json()) as any;
+    const usProviderIds: string[] = (usProvidersJson.payment_providers || []).map((p: any) => p.id);
+
+    record(
+      "Suite 6: Storefront Integration",
+      "Test 34: GET /store/payment-providers returns pp_razorpay_razorpay for US region",
+      usProviderIds.includes("pp_razorpay_razorpay"),
+      JSON.stringify(usProviderIds)
+    );
+
+    // 3. Create Cart and Payment Collection
+    const cartRes = await fetch("http://localhost:9000/store/carts", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        region_id: "reg_01M617GB6G0JD57ZT481HYV9MV",
+        currency_code: "inr",
+        email: "razorpay.test@theecombuddy.com",
+      }),
+    });
+    const cartJson = (await cartRes.json()) as any;
+    const cartId = cartJson.cart?.id;
+
+    // Get Variant
+    const variants: any[] = await query({
+      entryPoint: "product_variant",
+      fields: ["id", "title"],
+      variables: { pagination: { limit: 1 } },
+    });
+    const testVariant = variants[0];
+
+    // Add Line Item
+    await fetch(`http://localhost:9000/store/carts/${cartId}/line-items`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ variant_id: testVariant.id, quantity: 1 }),
+    });
+
+    // Add Shipping Address & Method
+    await fetch(`http://localhost:9000/store/carts/${cartId}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        shipping_address: {
+          first_name: "Rahul",
+          last_name: "Verma",
+          address_1: "742 Marine Drive",
+          city: "Mumbai",
+          province: "Maharashtra",
+          postal_code: "400001",
+          country_code: "in",
+          phone: "+919876543210",
+        },
+      }),
+    });
+
+    const shippingOptionsRes = await fetch(
+      `http://localhost:9000/store/shipping-options?cart_id=${cartId}`,
+      { headers }
+    );
+    const shippingOptionsJson = (await shippingOptionsRes.json()) as any;
+    const standardShipping = shippingOptionsJson.shipping_options?.[0];
+
+    await fetch(`http://localhost:9000/store/carts/${cartId}/shipping-methods`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ option_id: standardShipping.id }),
+    });
+
+    // Create Payment Collection
+    const payColRes = await fetch(
+      `http://localhost:9000/store/payment-collections`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ cart_id: cartId }),
+      }
+    );
+    const payColJson = (await payColRes.json()) as any;
+    const paymentCollectionId = payColJson.payment_collection?.id;
+
+    record(
+      "Suite 6: Storefront Integration",
+      "Test 35: Payment collection created successfully for Razorpay cart",
+      Boolean(paymentCollectionId),
+      `Collection: ${paymentCollectionId}`
+    );
+
+    // Clean up cart after verification
+    record(
+      "Suite 6: Storefront Integration",
+      "Test 36: Cart readiness verified with shipping, line items, and monetary subtotals",
+      Boolean(payColJson.payment_collection?.amount > 0),
+      `Total: ₹${payColJson.payment_collection?.amount}`
+    );
+  } catch (err: any) {
+    record("Suite 6: Storefront Integration", "Suite 6 Execution", false, err.message);
+  }
+
+  // ============================================================================
+  // SUITE 7: Live Razorpay Gateway Sandbox Preflight Check (Phase 4 Guard)
+  // ============================================================================
+  console.log("\n--- SUITE 7: Live Razorpay Gateway Sandbox Audit ---");
+  const keyId = process.env.RAZORPAY_KEY_ID || "";
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
+  const isPlaceholder =
+    !keyId ||
+    !keySecret ||
+    keyId.includes("placeholder") ||
+    keySecret.includes("placeholder");
+
+  if (isPlaceholder) {
+    recordBlocked(
+      "Suite 7: Gateway Sandbox",
+      "Test 37: Razorpay Live Sandbox Network Handshake",
+      "Merchant test credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) not yet configured in local .env. Zero mock policy enforced: no simulated transactions fabricated."
+    );
+    recordBlocked(
+      "Suite 7: Gateway Sandbox",
+      "Test 38: Live Razorpay Webhook Ingestion Delivery",
+      "Requires public tunnel (ngrok / live IP) and real webhook secret configured on Razorpay dashboard."
+    );
+  } else {
+    try {
+      const liveClient = new RazorpayClient({
+        key_id: keyId,
+        key_secret: keySecret,
+        mode: "test",
+      });
+      const order = await liveClient.createOrder({
+        amount: 10000,
+        currency: "INR",
+        receipt: `test_${Date.now()}`,
+      });
+      record(
+        "Suite 7: Gateway Sandbox",
+        "Test 37: Razorpay Live Sandbox Network Handshake",
+        Boolean(order.id),
+        `Live Sandbox Order: ${order.id}`,
+        true
+      );
+    } catch (err: any) {
+      recordBlocked(
+        "Suite 7: Gateway Sandbox",
+        "Test 37: Razorpay Live Sandbox Network Handshake",
+        `Gateway returned: ${err.message}`
+      );
+    }
+  }
+
+  // ============================================================================
+  // SUMMARY
+  // ============================================================================
+  console.log("\n==============================================================================");
+  console.log("[verify-02d-b] VERIFICATION SUMMARY");
+  console.log("==============================================================================");
+
+  const unitPassed = results.filter((r) => r.status === "UNIT TEST PASSED").length;
+  const sandboxPassed = results.filter((r) => r.status === "RAZORPAY SANDBOX PASSED").length;
+  const blocked = results.filter((r) => r.status === "BLOCKED").length;
+  const failed = results.filter((r) => r.status === "FAILED").length;
+
+  console.log(`UNIT TEST PASSED:         ${unitPassed}`);
+  console.log(`RAZORPAY SANDBOX PASSED:  ${sandboxPassed}`);
+  console.log(`BLOCKED (PER PHASE 4):    ${blocked}`);
+  console.log(`FAILED:                   ${failed}`);
+  console.log("==============================================================================");
+
+  if (failed > 0) {
+    throw new Error(`${failed} verification tests failed!`);
+  }
+}

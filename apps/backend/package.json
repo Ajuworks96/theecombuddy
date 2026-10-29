@@ -13,6 +13,8 @@
     "verify:02c": "medusa exec ./src/scripts/verify-milestone-02c.ts",
     "setup:02d-a": "medusa exec ./src/scripts/setup-milestone-02d-a.ts",
     "verify:02d-a": "medusa exec ./src/scripts/verify-milestone-02d-a.ts",
+    "setup:02d-b": "medusa exec ./src/scripts/setup-milestone-02d-b.ts",
+    "verify:02d-b": "medusa exec ./src/scripts/verify-milestone-02d-b.ts",
     "db:migrate": "medusa db:migrate",
     "typecheck": "tsc --noEmit"
   },

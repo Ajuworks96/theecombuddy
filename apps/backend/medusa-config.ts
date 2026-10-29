@@ -16,37 +16,62 @@ export default defineConfig({
       cookieSecret: process.env.COOKIE_SECRET || "supersecret_ecom_buddy_cookie_token_development_only",
     },
   },
-  modules: isRedisConfigured
-    ? {
-        [Modules.EVENT_BUS]: {
-          resolve: "@medusajs/medusa/event-bus-redis",
-          options: {
-            redisUrl: process.env.REDIS_URL,
+  modules: {
+    [Modules.PAYMENT]: {
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "./src/modules/payment-razorpay",
+            id: "razorpay",
+            options: {
+              key_id: process.env.RAZORPAY_KEY_ID,
+              key_secret: process.env.RAZORPAY_KEY_SECRET,
+              webhook_secret: process.env.RAZORPAY_WEBHOOK_SECRET,
+              mode: process.env.RAZORPAY_MODE || "test",
+              auto_capture: true,
+              supported_currencies: (
+                process.env.RAZORPAY_SUPPORTED_CURRENCIES || "inr,usd,aed,gbp,eur"
+              )
+                .split(",")
+                .map((c) => c.trim().toLowerCase()),
+            },
           },
-        },
-        [Modules.WORKFLOW_ENGINE]: {
-          resolve: "@medusajs/medusa/workflow-engine-redis",
-          options: {
-            redis: {
+        ],
+      },
+    },
+    ...(isRedisConfigured
+      ? {
+          [Modules.EVENT_BUS]: {
+            resolve: "@medusajs/medusa/event-bus-redis",
+            options: {
               redisUrl: process.env.REDIS_URL,
             },
           },
-        },
-        [Modules.CACHING]: {
-          resolve: "@medusajs/medusa/caching",
-          options: {
-            providers: [
-              {
-                id: "caching-redis",
-                resolve: "@medusajs/medusa/caching-redis",
-                is_default: true,
-                options: {
-                  redisUrl: process.env.REDIS_URL,
-                },
+          [Modules.WORKFLOW_ENGINE]: {
+            resolve: "@medusajs/medusa/workflow-engine-redis",
+            options: {
+              redis: {
+                redisUrl: process.env.REDIS_URL,
               },
-            ],
+            },
           },
-        },
-      }
-    : {},
+          [Modules.CACHING]: {
+            resolve: "@medusajs/medusa/caching",
+            options: {
+              providers: [
+                {
+                  id: "caching-redis",
+                  resolve: "@medusajs/medusa/caching-redis",
+                  is_default: true,
+                  options: {
+                    redisUrl: process.env.REDIS_URL,
+                  },
+                },
+              ],
+            },
+          },
+        }
+      : {}),
+  },
 });

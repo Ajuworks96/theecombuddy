@@ -205,3 +205,4 @@ Authored comprehensive architectural contracts in [**`docs/PAYMENT_GATEWAY_CONTR
 - **Milestone 02D-B**: Razorpay live gateway adapter integration, Webhook HMAC signature verification, order payment capture, and refund workflows.
 - **Milestone 02D-C**: Cashfree gateway adapter integration, UPI Intent, NetBanking, and automated COD courier reconciliation.
 - **Storefront / Admin UI**: Frontend checkout UX and Admin dashboard are scheduled for Milestones 03 and 04.
+

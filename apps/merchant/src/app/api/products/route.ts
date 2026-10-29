@@ -130,6 +130,12 @@ export async function POST(req: NextRequest) {
       payload.images = images;
     }
 
+    if (Array.isArray(body.sales_channels) && body.sales_channels.length > 0) {
+      payload.sales_channels = body.sales_channels;
+    } else {
+      payload.sales_channels = [{ id: "sc_01M60XB5ZV6YW1GEH67C70CEPC" }];
+    }
+
     const product = await medusaAdmin.createProduct(session.token, payload);
     return NextResponse.json({ product }, { status: 201 });
   } catch (err: any) {

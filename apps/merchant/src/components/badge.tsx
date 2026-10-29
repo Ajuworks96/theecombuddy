@@ -13,6 +13,11 @@ export type BadgeVariant =
   | "captured"
   | "canceled"
   | "failed"
+  | "active"
+  | "inactive"
+  | "fulfilled"
+  | "shipped"
+  | "not_fulfilled"
   | "default";
 
 interface BadgeProps {
@@ -27,18 +32,23 @@ const variantStyles: Record<string, string> = {
   completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   captured: "bg-emerald-50 text-emerald-700 border-emerald-200",
   in_stock: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  fulfilled: "bg-emerald-50 text-emerald-700 border-emerald-200",
 
   draft: "bg-amber-50 text-amber-700 border-amber-200",
   pending: "bg-amber-50 text-amber-700 border-amber-200",
   low_stock: "bg-amber-50 text-amber-700 border-amber-200",
+  not_fulfilled: "bg-amber-50 text-amber-700 border-amber-200",
 
   proposed: "bg-blue-50 text-blue-700 border-blue-200",
+  shipped: "bg-blue-50 text-blue-700 border-blue-200",
 
   rejected: "bg-rose-50 text-rose-700 border-rose-200",
   canceled: "bg-rose-50 text-rose-700 border-rose-200",
   failed: "bg-rose-50 text-rose-700 border-rose-200",
   out_of_stock: "bg-rose-50 text-rose-700 border-rose-200",
 
+  inactive: "bg-slate-100 text-slate-500 border-slate-200",
   default: "bg-slate-100 text-slate-700 border-slate-200",
 };
 

@@ -59,6 +59,8 @@ export interface AdminOrder {
   id: string;
   display_id: number;
   status: string;
+  payment_status?: string;
+  fulfillment_status?: string;
   currency_code: string;
   total: number;
   subtotal?: number;
@@ -66,30 +68,154 @@ export interface AdminOrder {
   shipping_total?: number;
   discount_total?: number;
   created_at: string;
+  updated_at?: string;
   email?: string;
   customer?: {
     id: string;
     email: string;
     first_name?: string | null;
     last_name?: string | null;
+    phone?: string | null;
+  } | null;
+  shipping_address?: {
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    company?: string | null;
+    address_1?: string | null;
+    address_2?: string | null;
+    city?: string | null;
+    province?: string | null;
+    postal_code?: string | null;
+    country_code?: string | null;
+    phone?: string | null;
+  } | null;
+  billing_address?: {
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    address_1?: string | null;
+    city?: string | null;
+    province?: string | null;
+    postal_code?: string | null;
+    country_code?: string | null;
   } | null;
   items?: Array<{
     id: string;
     title: string;
+    subtitle?: string | null;
     quantity: number;
     unit_price: number;
+    subtotal?: number;
+    total?: number;
+    tax_total?: number;
     thumbnail?: string | null;
+    variant_sku?: string | null;
+    variant_title?: string | null;
+    tax_lines?: Array<{
+      id: string;
+      description?: string;
+      code?: string;
+      rate: number;
+      total: number;
+    }>;
+    detail?: {
+      fulfilled_quantity: number;
+      shipped_quantity: number;
+      delivered_quantity: number;
+    };
   }>;
   payment_collections?: Array<{
     id: string;
     status: string;
+    amount: number;
+    authorized_amount?: number;
+    captured_amount?: number;
     payments?: Array<{
       id: string;
       provider_id: string;
       amount: number;
       currency_code: string;
+      captured_at?: string | null;
+      canceled_at?: string | null;
     }>;
   }>;
+  fulfillments?: Array<{
+    id: string;
+    provider_id: string;
+    shipped_at?: string | null;
+    canceled_at?: string | null;
+    tracking_numbers?: string[];
+    items?: Array<{
+      id: string;
+      item_id: string;
+      quantity: number;
+    }>;
+  }>;
+  summary?: {
+    paid_total: number;
+    refunded_total: number;
+    current_order_total: number;
+    pending_difference: number;
+  };
+}
+
+export interface AdminCustomer {
+  id: string;
+  email: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  has_account: boolean;
+  created_at: string;
+  updated_at: string;
+  addresses?: Array<{
+    id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    company?: string | null;
+    address_1?: string | null;
+    address_2?: string | null;
+    city?: string | null;
+    province?: string | null;
+    postal_code?: string | null;
+    country_code?: string | null;
+    phone?: string | null;
+    is_default_shipping?: boolean;
+    is_default_billing?: boolean;
+  }>;
+  orders?: AdminOrder[];
+}
+
+export interface AdminPromotion {
+  id: string;
+  code: string;
+  type: "standard" | "buyget";
+  status: "draft" | "active" | "inactive";
+  is_automatic: boolean;
+  created_at: string;
+  updated_at: string;
+  application_method?: {
+    id: string;
+    type: "percentage" | "fixed";
+    target_type: "order" | "items" | "shipping_methods";
+    allocation: "across" | "each";
+    value: number;
+    currency_code?: string;
+    max_quantity?: number | null;
+  };
+  rules?: Array<{
+    id: string;
+    attribute: string;
+    operator: string;
+    values: string[];
+  }>;
+  campaign?: {
+    id: string;
+    name: string;
+    starts_at?: string | null;
+    ends_at?: string | null;
+  } | null;
 }
 
 export interface DashboardStats {
@@ -449,11 +575,27 @@ export class MedusaAdminClient {
    */
   async getOrders(
     token: string,
-    params: { limit?: number; offset?: number; status?: string } = {}
+    params: {
+      limit?: number;
+      offset?: number;
+      status?: string | string[];
+      q?: string;
+      order?: string;
+    } = {}
   ): Promise<{ orders: AdminOrder[]; count: number; limit: number; offset: number }> {
     const query = new URLSearchParams();
     query.set("limit", String(params.limit ?? 20));
     query.set("offset", String(params.offset ?? 0));
+    query.set(
+      "fields",
+      "*customer,*items,*shipping_address,*billing_address,*payment_collections,*payment_collections.payments,*fulfillments"
+    );
+    if (params.q) {
+      query.set("q", params.q.trim());
+    }
+    if (params.order) {
+      query.set("order", params.order);
+    }
     if (params.status) {
       if (Array.isArray(params.status)) {
         params.status.forEach((s) => query.append("status[]", s));
@@ -468,6 +610,260 @@ export class MedusaAdminClient {
       limit: number;
       offset: number;
     }>(`/admin/orders?${query.toString()}`, { method: "GET" }, token);
+  }
+
+  /**
+   * Retrieve single order by ID with all relations
+   */
+  async getOrder(token: string, id: string): Promise<AdminOrder> {
+    const res = await this.request<{ order: AdminOrder }>(
+      `/admin/orders/${id}?fields=*customer,*items,*items.tax_lines,*items.detail,*shipping_address,*billing_address,*payment_collections,*payment_collections.payments,*fulfillments,*fulfillments.items,*summary`,
+      { method: "GET" },
+      token
+    );
+    return res.order;
+  }
+
+  /**
+   * Cancel an order through official Medusa v2 workflow
+   */
+  async cancelOrder(token: string, id: string): Promise<{ order: AdminOrder }> {
+    return await this.request<{ order: AdminOrder }>(
+      `/admin/orders/${id}/cancel`,
+      { method: "POST" },
+      token
+    );
+  }
+
+  /**
+   * Create fulfillment for order
+   */
+  async createOrderFulfillment(token: string, orderId: string, data: any): Promise<any> {
+    return await this.request<{ order: AdminOrder }>(
+      `/admin/orders/${orderId}/fulfillments`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      token
+    );
+  }
+
+  /**
+   * Create shipment / tracking information for order fulfillment
+   */
+  async createOrderShipment(
+    token: string,
+    orderId: string,
+    fulfillmentId: string,
+    data: any
+  ): Promise<any> {
+    return await this.request<{ order: AdminOrder }>(
+      `/admin/orders/${orderId}/fulfillments/${fulfillmentId}/shipments`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      token
+    );
+  }
+
+  /**
+   * Capture a payment
+   */
+  async capturePayment(token: string, paymentId: string, data: any = {}): Promise<any> {
+    return await this.request<{ payment: any }>(
+      `/admin/payments/${paymentId}/capture`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      token
+    );
+  }
+
+  /**
+   * Mark a payment collection as paid (e.g. COD manual collection confirmation)
+   */
+  async markPaymentCollectionAsPaid(
+    token: string,
+    paymentCollectionId: string,
+    data: any = {}
+  ): Promise<any> {
+    return await this.request<{ payment_collection: any }>(
+      `/admin/payment-collections/${paymentCollectionId}/mark-as-paid`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      token
+    );
+  }
+
+  /**
+   * Retrieve customers with search and pagination
+   */
+  async getCustomers(
+    token: string,
+    params: { limit?: number; offset?: number; q?: string } = {}
+  ): Promise<{ customers: AdminCustomer[]; count: number; limit: number; offset: number }> {
+    const query = new URLSearchParams();
+    query.set("limit", String(params.limit ?? 20));
+    query.set("offset", String(params.offset ?? 0));
+    query.set("fields", "*addresses,*orders");
+    if (params.q) {
+      query.set("q", params.q.trim());
+    }
+
+    return await this.request<{
+      customers: AdminCustomer[];
+      count: number;
+      limit: number;
+      offset: number;
+    }>(`/admin/customers?${query.toString()}`, { method: "GET" }, token);
+  }
+
+  /**
+   * Retrieve single customer by ID
+   */
+  async getCustomer(token: string, id: string): Promise<AdminCustomer> {
+    const res = await this.request<{ customer: AdminCustomer }>(
+      `/admin/customers/${id}?fields=*addresses,*orders`,
+      { method: "GET" },
+      token
+    );
+    return res.customer;
+  }
+
+  /**
+   * Create customer
+   */
+  async createCustomer(token: string, customerData: any): Promise<AdminCustomer> {
+    const res = await this.request<{ customer: AdminCustomer }>(
+      "/admin/customers",
+      {
+        method: "POST",
+        body: JSON.stringify(customerData),
+      },
+      token
+    );
+    return res.customer;
+  }
+
+  /**
+   * Update customer
+   */
+  async updateCustomer(token: string, id: string, customerData: any): Promise<AdminCustomer> {
+    const res = await this.request<{ customer: AdminCustomer }>(
+      `/admin/customers/${id}`,
+      {
+        method: "POST",
+        body: JSON.stringify(customerData),
+      },
+      token
+    );
+    return res.customer;
+  }
+
+  /**
+   * Retrieve promotions
+   */
+  async getPromotions(
+    token: string,
+    params: { limit?: number; offset?: number; q?: string } = {}
+  ): Promise<{ promotions: AdminPromotion[]; count: number; limit: number; offset: number }> {
+    const query = new URLSearchParams();
+    query.set("limit", String(params.limit ?? 50));
+    query.set("offset", String(params.offset ?? 0));
+    query.set("fields", "*application_method,*campaign");
+    if (params.q) {
+      query.set("code", params.q.trim());
+    }
+
+    return await this.request<{
+      promotions: AdminPromotion[];
+      count: number;
+      limit: number;
+      offset: number;
+    }>(`/admin/promotions?${query.toString()}`, { method: "GET" }, token);
+  }
+
+  /**
+   * Retrieve single promotion by ID
+   */
+  async getPromotion(token: string, id: string): Promise<AdminPromotion> {
+    const res = await this.request<{ promotion: AdminPromotion }>(
+      `/admin/promotions/${id}?fields=*application_method,*rules,*campaign`,
+      { method: "GET" },
+      token
+    );
+    return res.promotion;
+  }
+
+  /**
+   * Create promotion
+   */
+  async createPromotion(token: string, data: any): Promise<AdminPromotion> {
+    const res = await this.request<{ promotion: AdminPromotion }>(
+      "/admin/promotions",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      token
+    );
+    return res.promotion;
+  }
+
+  /**
+   * Update promotion
+   */
+  async updatePromotion(token: string, id: string, data: any): Promise<AdminPromotion> {
+    const res = await this.request<{ promotion: AdminPromotion }>(
+      `/admin/promotions/${id}`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      token
+    );
+    return res.promotion;
+  }
+
+  /**
+   * Delete promotion
+   */
+  async deletePromotion(
+    token: string,
+    id: string
+  ): Promise<{ id: string; object: string; deleted: boolean }> {
+    return await this.request<{ id: string; object: string; deleted: boolean }>(
+      `/admin/promotions/${id}`,
+      { method: "DELETE" },
+      token
+    );
+  }
+
+  /**
+   * Retrieve sales channels
+   */
+  async getSalesChannels(token: string): Promise<{ sales_channels: any[]; count: number }> {
+    return await this.request<{ sales_channels: any[]; count: number }>(
+      "/admin/sales-channels",
+      { method: "GET" },
+      token
+    );
+  }
+
+  /**
+   * Retrieve shipping profiles
+   */
+  async getShippingProfiles(token: string): Promise<{ shipping_profiles: any[]; count: number }> {
+    return await this.request<{ shipping_profiles: any[]; count: number }>(
+      "/admin/shipping-profiles",
+      { method: "GET" },
+      token
+    );
   }
 
   /**

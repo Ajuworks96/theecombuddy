@@ -77,3 +77,4 @@ export function formatRelativeTime(dateInput: string | number | Date | null | un
 
   return formatDate(date, false);
 }
+

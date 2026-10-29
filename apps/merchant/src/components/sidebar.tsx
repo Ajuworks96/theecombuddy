@@ -195,3 +195,4 @@ export function Sidebar({ userEmail = "admin@theecombuddy.local" }: SidebarProps
     </aside>
   );
 }
+

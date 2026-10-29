@@ -237,11 +237,207 @@ export class MedusaAdminClient {
   }
 
   /**
+   * Create a new product in Medusa v2
+   */
+  async createProduct(token: string, productData: any): Promise<AdminProduct> {
+    const res = await this.request<{ product: AdminProduct }>(
+      "/admin/products",
+      {
+        method: "POST",
+        body: JSON.stringify(productData),
+      },
+      token
+    );
+    return res.product;
+  }
+
+  /**
+   * Update an existing product
+   */
+  async updateProduct(token: string, id: string, productData: any): Promise<AdminProduct> {
+    const res = await this.request<{ product: AdminProduct }>(
+      `/admin/products/${id}`,
+      {
+        method: "POST",
+        body: JSON.stringify(productData),
+      },
+      token
+    );
+    return res.product;
+  }
+
+  /**
+   * Delete a product by ID
+   */
+  async deleteProduct(token: string, id: string): Promise<{ id: string; object: string; deleted: boolean }> {
+    return await this.request<{ id: string; object: string; deleted: boolean }>(
+      `/admin/products/${id}`,
+      { method: "DELETE" },
+      token
+    );
+  }
+
+  /**
+   * Upload files to Medusa storage
+   */
+  async uploadFiles(token: string, formData: FormData): Promise<Array<{ id: string; url: string }>> {
+    const url = `${this.baseUrl}/admin/uploads`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      let errBody: any = null;
+      try {
+        errBody = await res.json();
+      } catch {
+        errBody = { message: res.statusText };
+      }
+      throw new MedusaApiError(
+        errBody?.message || `File upload failed with status ${res.status}`,
+        res.status,
+        errBody
+      );
+    }
+
+    const json = await res.json();
+    return json.files || [];
+  }
+
+  /**
+   * Delete uploaded file
+   */
+  async deleteFile(token: string, fileId: string): Promise<{ id: string; object: string; deleted: boolean }> {
+    return await this.request<{ id: string; object: string; deleted: boolean }>(
+      `/admin/uploads/${fileId}`,
+      { method: "DELETE" },
+      token
+    );
+  }
+
+  /**
+   * Create a product category
+   */
+  async createCategory(token: string, categoryData: any): Promise<any> {
+    const res = await this.request<{ product_category: any }>(
+      "/admin/product-categories",
+      {
+        method: "POST",
+        body: JSON.stringify(categoryData),
+      },
+      token
+    );
+    return res.product_category;
+  }
+
+  /**
+   * Update a product category
+   */
+  async updateCategory(token: string, id: string, categoryData: any): Promise<any> {
+    const res = await this.request<{ product_category: any }>(
+      `/admin/product-categories/${id}`,
+      {
+        method: "POST",
+        body: JSON.stringify(categoryData),
+      },
+      token
+    );
+    return res.product_category;
+  }
+
+  /**
+   * Delete a product category
+   */
+  async deleteCategory(token: string, id: string): Promise<{ id: string; object: string; deleted: boolean }> {
+    return await this.request<{ id: string; object: string; deleted: boolean }>(
+      `/admin/product-categories/${id}`,
+      { method: "DELETE" },
+      token
+    );
+  }
+
+  /**
+   * Create a collection
+   */
+  async createCollection(token: string, collectionData: any): Promise<any> {
+    const res = await this.request<{ collection: any }>(
+      "/admin/collections",
+      {
+        method: "POST",
+        body: JSON.stringify(collectionData),
+      },
+      token
+    );
+    return res.collection;
+  }
+
+  /**
+   * Update a collection
+   */
+  async updateCollection(token: string, id: string, collectionData: any): Promise<any> {
+    const res = await this.request<{ collection: any }>(
+      `/admin/collections/${id}`,
+      {
+        method: "POST",
+        body: JSON.stringify(collectionData),
+      },
+      token
+    );
+    return res.collection;
+  }
+
+  /**
+   * Delete a collection
+   */
+  async deleteCollection(token: string, id: string): Promise<{ id: string; object: string; deleted: boolean }> {
+    return await this.request<{ id: string; object: string; deleted: boolean }>(
+      `/admin/collections/${id}`,
+      { method: "DELETE" },
+      token
+    );
+  }
+
+  /**
+   * Retrieve stock locations
+   */
+  async getStockLocations(token: string): Promise<{ stock_locations: any[]; count: number }> {
+    return await this.request<{ stock_locations: any[]; count: number }>(
+      "/admin/stock-locations",
+      { method: "GET" },
+      token
+    );
+  }
+
+  /**
+   * Update stock quantity on a location level
+   */
+  async updateInventoryLevel(
+    token: string,
+    inventoryItemId: string,
+    locationId: string,
+    quantity: number
+  ): Promise<any> {
+    const res = await this.request<{ inventory_item: any }>(
+      `/admin/inventory-items/${inventoryItemId}/location-levels/${locationId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ stocked_quantity: quantity }),
+      },
+      token
+    );
+    return res.inventory_item;
+  }
+
+  /**
    * Retrieve single product by ID
    */
   async getProduct(token: string, id: string): Promise<AdminProduct> {
     const res = await this.request<{ product: AdminProduct }>(
-      `/admin/products/${id}`,
+      `/admin/products/${id}?fields=*variants,*categories,*collection,*images,*options,*options.values,*variants.prices`,
       { method: "GET" },
       token
     );
@@ -275,15 +471,69 @@ export class MedusaAdminClient {
   }
 
   /**
+   * Add a variant to an existing product
+   */
+  async createVariant(token: string, productId: string, variantData: any): Promise<any> {
+    const res = await this.request<{ product: AdminProduct }>(
+      `/admin/products/${productId}/variants`,
+      {
+        method: "POST",
+        body: JSON.stringify(variantData),
+      },
+      token
+    );
+    return res.product;
+  }
+
+  /**
+   * Update a product variant
+   */
+  async updateVariant(
+    token: string,
+    productId: string,
+    variantId: string,
+    variantData: any
+  ): Promise<any> {
+    const res = await this.request<{ product: AdminProduct }>(
+      `/admin/products/${productId}/variants/${variantId}`,
+      {
+        method: "POST",
+        body: JSON.stringify(variantData),
+      },
+      token
+    );
+    return res.product;
+  }
+
+  /**
+   * Delete a variant
+   */
+  async deleteVariant(
+    token: string,
+    productId: string,
+    variantId: string
+  ): Promise<{ id: string; object: string; deleted: boolean }> {
+    return await this.request<{ id: string; object: string; deleted: boolean }>(
+      `/admin/products/${productId}/variants/${variantId}`,
+      { method: "DELETE" },
+      token
+    );
+  }
+
+  /**
    * Retrieve inventory items
    */
   async getInventoryItems(
     token: string,
-    params: { limit?: number; offset?: number } = {}
+    params: { limit?: number; offset?: number; q?: string } = {}
   ): Promise<{ inventory_items: any[]; count: number }> {
     const query = new URLSearchParams();
     query.set("limit", String(params.limit ?? 50));
     query.set("offset", String(params.offset ?? 0));
+    query.set("fields", "*location_levels");
+    if (params.q) {
+      query.set("q", params.q.trim());
+    }
 
     return await this.request<{ inventory_items: any[]; count: number }>(
       `/admin/inventory-items?${query.toString()}`,

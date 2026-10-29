@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { AdminProduct } from "@/lib/medusa-admin-client";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { Badge } from "@/components/badge";
@@ -16,6 +17,8 @@ import {
   RefreshIcon,
   CheckCircleIcon,
   AlertCircleIcon,
+  PlusIcon,
+  EditIcon,
 } from "@/components/icons";
 
 export default function ProductsPage() {
@@ -94,40 +97,50 @@ export default function ProductsPage() {
           </p>
         </div>
 
-        {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 max-w-md w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-72">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <SearchIcon size={14} />
+        {/* Search Bar & Actions */}
+        <div className="flex items-center gap-2 max-w-md w-full sm:w-auto">
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1">
+            <div className="relative flex-1 sm:w-72">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <SearchIcon size={14} />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products by title..."
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
             </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products by title..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors shadow-2xs shrink-0"
-          >
-            Search
-          </button>
-          {activeSearch && (
             <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("");
-                setActiveSearch("");
-                setCurrentPage(1);
-              }}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              type="submit"
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors shadow-2xs shrink-0"
             >
-              Clear
+              Search
             </button>
-          )}
-        </form>
+            {activeSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setActiveSearch("");
+                  setCurrentPage(1);
+                }}
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </form>
+
+          <Link
+            href="/products/new"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs transition-colors shrink-0"
+          >
+            <PlusIcon size={14} />
+            <span>Add Product</span>
+          </Link>
+        </div>
       </div>
 
       {/* Filter Tabs & Page Size Bar */}
@@ -329,17 +342,27 @@ export default function ProductsPage() {
 
                       {/* Actions */}
                       <td className="py-2.5 px-4 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedProduct(p);
-                          }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        >
-                          <EyeIcon size={14} />
-                          <span>Details</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/products/${p.id}/edit`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-emerald-600 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <EditIcon size={13} />
+                            <span>Edit</span>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProduct(p);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <EyeIcon size={13} />
+                            <span>Details</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -495,7 +518,13 @@ export default function ProductsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+              <Link
+                href={`/products/${selectedProduct.id}/edit`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-2xs"
+              >
+                <EditIcon size={14} /> Edit Full Product
+              </Link>
               <button
                 type="button"
                 onClick={() => setSelectedProduct(null)}
@@ -510,3 +539,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

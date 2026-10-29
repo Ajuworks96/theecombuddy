@@ -24,3 +24,4 @@ export function TableRowSkeleton({ columns = 6 }: { columns?: number }) {
     </tr>
   );
 }
+

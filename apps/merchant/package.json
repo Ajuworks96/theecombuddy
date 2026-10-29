@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start -p 7001",
     "typecheck": "tsc --noEmit",
-    "verify:03a": "node src/scripts/verify-milestone-03a.js"
+    "verify:03a": "node src/scripts/verify-milestone-03a.js",
+    "verify:03b": "node src/scripts/verify-milestone-03b.js"
   },
   "dependencies": {
     "@the-ecom-buddy/types": "*",

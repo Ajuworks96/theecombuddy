@@ -71,3 +71,4 @@ export function getMerchantConfig(): MerchantBrandingConfig {
 }
 
 export const merchantConfig = getMerchantConfig();
+

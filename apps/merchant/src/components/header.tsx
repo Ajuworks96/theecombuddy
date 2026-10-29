@@ -75,3 +75,4 @@ export function Header({ title, storeName = "Medusa Store" }: HeaderProps) {
     </header>
   );
 }
+

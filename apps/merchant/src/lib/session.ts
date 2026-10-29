@@ -90,3 +90,4 @@ export async function clearSession(): Promise<void> {
     maxAge: 0,
   });
 }
+

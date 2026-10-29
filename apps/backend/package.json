@@ -23,7 +23,8 @@
     "@medusajs/cli": "2.22.1",
     "@medusajs/framework": "2.22.1",
     "@medusajs/medusa": "2.22.1",
-    "@the-ecom-buddy/types": "*"
+    "@the-ecom-buddy/types": "*",
+    "ioredis": "^5.4.1"
   },
   "devDependencies": {
     "@types/node": "^20.12.11",

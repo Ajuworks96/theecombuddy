@@ -43,6 +43,7 @@ export interface RazorpayOptions {
   auto_capture?: boolean;
   supported_currencies?: string[];
   client_transport?: RazorpayTransport;
+  redis_client?: any;
 }
 
 export interface RazorpayOrder {
@@ -417,7 +418,7 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
   protected readonly options: RazorpayOptions;
   protected client: RazorpayClient;
   protected container: Record<string, any>;
-  private processedWebhookEvents = new Set<string>();
+  private redisInstance?: any;
 
   static validateOptions(options: RazorpayOptions): void {
     if (options.mode === "live") {
@@ -453,6 +454,36 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
 
   public getOptions(): RazorpayOptions {
     return this.options;
+  }
+
+  public async getRedisClient(): Promise<any> {
+    if (this.options.redis_client) {
+      return this.options.redis_client;
+    }
+    if (this.redisInstance) {
+      return this.redisInstance;
+    }
+
+    const containerRedis = this.container["redisConnection"] || this.container["redisClient"];
+    if (containerRedis && typeof containerRedis.set === "function") {
+      this.redisInstance = containerRedis;
+      return this.redisInstance;
+    }
+
+    try {
+      const Redis = require("ioredis");
+      const url = process.env.REDIS_URL || "redis://localhost:6379";
+      const client = new Redis(url, {
+        maxRetriesPerRequest: 1,
+        connectTimeout: 2000,
+        lazyConnect: true,
+      });
+      await client.connect();
+      this.redisInstance = client;
+      return this.redisInstance;
+    } catch {
+      return undefined;
+    }
   }
 
   async initiatePayment(
@@ -606,8 +637,16 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
     input: RefundPaymentInput
   ): Promise<RefundPaymentOutput> {
     const { amount, data } = input;
-    const paymentId = (data?.payment_id as string) || (data?.razorpay_payment_id as string) || (data?.id as string);
+    const numericAmount = typeof amount === "number" ? amount : Number(amount);
 
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Refund amount must be greater than zero. Received: ${amount}`
+      );
+    }
+
+    const paymentId = (data?.payment_id as string) || (data?.razorpay_payment_id as string) || (data?.id as string);
     if (!paymentId) {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
@@ -616,7 +655,20 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
     }
 
     const currency = (data?.currency as string) || "inr";
-    const refundSmallest = toSmallestUnit(amount, currency);
+    const refundSmallest = toSmallestUnit(numericAmount, currency);
+
+    // Validate that refund does not exceed captured amount
+    const capturedAmount = Number(data?.amount || 0);
+    const alreadyRefunded = Number(data?.amount_refunded || 0);
+    if (capturedAmount > 0) {
+      const remainingBalance = capturedAmount - alreadyRefunded;
+      if (refundSmallest > remainingBalance) {
+        throw new MedusaError(
+          MedusaError.Types.NOT_ALLOWED,
+          `Refund amount (${refundSmallest}) exceeds remaining captured payment balance (${remainingBalance}).`
+        );
+      }
+    }
 
     const refund = await this.client.createRefund(paymentId, {
       amount: refundSmallest,
@@ -630,6 +682,7 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
         ...(data || {}),
         refund,
         refund_id: refund.id,
+        amount_refunded: alreadyRefunded + refundSmallest,
       },
     };
   }
@@ -736,82 +789,112 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
       return { action: PaymentActions.NOT_SUPPORTED };
     }
 
-    // Replay & Duplicate Event Protection
+    // Event ID extraction for atomic idempotency
     const eventId =
       (headers?.["x-razorpay-event-id"] as string) ||
       (payloadData.id as string) ||
       (payloadData.event_id as string) ||
       "";
 
-    if (eventId) {
-      if (this.processedWebhookEvents.has(eventId)) {
-        return { action: PaymentActions.NOT_SUPPORTED };
-      }
-      this.processedWebhookEvents.add(eventId);
-
-      // Attempt Redis replay lock if Redis connection is accessible
-      try {
-        const redis = this.container["redisConnection"] || this.container["redisClient"];
-        if (redis && typeof redis.set === "function") {
-          const lockKey = `teb:webhook:razorpay:${eventId}`;
-          const acquired = await redis.set(lockKey, "1", "EX", 259200, "NX");
-          if (!acquired) {
-            return { action: PaymentActions.NOT_SUPPORTED };
-          }
-        }
-      } catch {
-        // Fallback to in-memory Set protection
-      }
-    }
-
-    const event = payloadData.event as string;
-    const paymentEntity = payloadData.payload?.payment?.entity;
-    const orderEntity = payloadData.payload?.order?.entity;
-
-    const sessionId =
-      paymentEntity?.notes?.session_id ||
-      orderEntity?.notes?.session_id ||
-      "";
-
-    if (!sessionId) {
+    if (!eventId) {
       return { action: PaymentActions.NOT_SUPPORTED };
     }
 
-    const rawAmount = paymentEntity?.amount || orderEntity?.amount || 0;
-    const currency = (paymentEntity?.currency || orderEntity?.currency || "inr").toLowerCase();
-    const amount = fromSmallestUnit(rawAmount, currency);
+    // Durable Redis Deduplication & Mutex Locking
+    const redis = await this.getRedisClient();
+    if (!redis) {
+      throw new MedusaError(
+        MedusaError.Types.UNEXPECTED_STATE,
+        "Redis durable store is required for payment webhook deduplication but could not be reached. Failing safely to preserve retriable state."
+      );
+    }
 
-    switch (event) {
-      case "payment.authorized":
-        return {
-          action: PaymentActions.AUTHORIZED,
-          data: {
-            session_id: sessionId,
-            amount,
-          },
-        };
+    const lockKey = `teb:webhook:razorpay:${eventId}`;
 
-      case "payment.captured":
-      case "order.paid":
-        return {
-          action: PaymentActions.SUCCESSFUL,
-          data: {
-            session_id: sessionId,
-            amount,
-          },
-        };
-
-      case "payment.failed":
-        return {
-          action: PaymentActions.FAILED,
-          data: {
-            session_id: sessionId,
-            amount,
-          },
-        };
-
-      default:
+    // Step 1: Atomic NX acquisition with 120s processing TTL
+    const acquired = await redis.set(lockKey, "processing", "EX", 120, "NX");
+    if (!acquired) {
+      const currentState = await redis.get(lockKey);
+      if (currentState === "completed") {
+        // Event already processed durably -> safe duplicate return
         return { action: PaymentActions.NOT_SUPPORTED };
+      }
+      if (currentState === "processing") {
+        // Concurrency in flight -> signal retriable conflict
+        throw new MedusaError(
+          MedusaError.Types.CONFLICT,
+          `Webhook event '${eventId}' is currently being processed by another worker. Retrying shortly.`
+        );
+      }
+    }
+
+    // Step 2: Process the event safely with error rollback
+    try {
+      const event = payloadData.event as string;
+      const paymentEntity = payloadData.payload?.payment?.entity;
+      const orderEntity = payloadData.payload?.order?.entity;
+
+      const sessionId =
+        paymentEntity?.notes?.session_id ||
+        orderEntity?.notes?.session_id ||
+        "";
+
+      if (!sessionId) {
+        // Unrecognized store event -> release lock so it doesn't block future keys
+        await redis.del(lockKey);
+        return { action: PaymentActions.NOT_SUPPORTED };
+      }
+
+      const rawAmount = paymentEntity?.amount || orderEntity?.amount || 0;
+      const currency = (paymentEntity?.currency || orderEntity?.currency || "inr").toLowerCase();
+      const amount = fromSmallestUnit(rawAmount, currency);
+
+      let result: WebhookActionResult;
+
+      switch (event) {
+        case "payment.authorized":
+          result = {
+            action: PaymentActions.AUTHORIZED,
+            data: {
+              session_id: sessionId,
+              amount,
+            },
+          };
+          break;
+
+        case "payment.captured":
+        case "order.paid":
+          result = {
+            action: PaymentActions.SUCCESSFUL,
+            data: {
+              session_id: sessionId,
+              amount,
+            },
+          };
+          break;
+
+        case "payment.failed":
+          result = {
+            action: PaymentActions.FAILED,
+            data: {
+              session_id: sessionId,
+              amount,
+            },
+          };
+          break;
+
+        default:
+          result = { action: PaymentActions.NOT_SUPPORTED };
+          break;
+      }
+
+      // Step 3: Transition lock to "completed" with 72-hour retention
+      await redis.set(lockKey, "completed", "EX", 259200);
+      return result;
+    } catch (err) {
+      // Step 4: If processing fails, release lock so Razorpay gateway retry succeeds
+      await redis.del(lockKey);
+      throw err;
     }
   }
 }

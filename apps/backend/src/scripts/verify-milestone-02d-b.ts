@@ -1,5 +1,5 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys, Modules, PaymentActions, PaymentSessionStatus } from "@medusajs/framework/utils";
+import { ContainerRegistrationKeys, MedusaError, Modules, PaymentActions, PaymentSessionStatus } from "@medusajs/framework/utils";
 import {
   RazorpayPaymentProviderService,
   RazorpayClient,
@@ -16,28 +16,29 @@ import {
 interface TestResult {
   suite: string;
   name: string;
-  status: "UNIT TEST PASSED" | "RAZORPAY SANDBOX PASSED" | "BLOCKED" | "FAILED";
+  status: "UNIT TEST PASSED" | "LOCAL INTEGRATION PASSED" | "RAZORPAY TEST MODE PASSED" | "BLOCKED" | "FAILED";
   details?: string;
 }
 
 export default async function verifyMilestone02DB({ container }: { container: MedusaContainer }) {
   console.log("==============================================================================");
-  console.log("[verify-02d-b] THE ECOM BUDDY — MILESTONE 02D-B RAZORPAY VERIFICATION");
+  console.log("[verify-02d-b] THE ECOM BUDDY — MILESTONE 02D-B.1 RAZORPAY SANDBOX & HARDENING");
   console.log("==============================================================================");
 
   const results: TestResult[] = [];
   const query = container.resolve(ContainerRegistrationKeys.REMOTE_QUERY);
   const paymentService = container.resolve(Modules.PAYMENT);
 
-  function record(suite: string, name: string, passed: boolean, details?: string, isSandbox = false) {
-    const status: TestResult["status"] = passed
-      ? isSandbox
-        ? "RAZORPAY SANDBOX PASSED"
-        : "UNIT TEST PASSED"
-      : "FAILED";
+  function record(
+    suite: string,
+    name: string,
+    passed: boolean,
+    details?: string,
+    category: "UNIT TEST PASSED" | "LOCAL INTEGRATION PASSED" | "RAZORPAY TEST MODE PASSED" = "UNIT TEST PASSED"
+  ) {
+    const status: TestResult["status"] = passed ? category : "FAILED";
     results.push({ suite, name, status, details });
-    const tag = `[${status}]`;
-    console.log(`  ${tag} ${name}${details ? ` (${details})` : ""}`);
+    console.log(`  [${status}] ${name}${details ? ` (${details})` : ""}`);
   }
 
   function recordBlocked(suite: string, name: string, reason: string) {
@@ -46,9 +47,9 @@ export default async function verifyMilestone02DB({ container }: { container: Me
   }
 
   // ============================================================================
-  // SUITE 1: Provider Architecture & Preflight Audit
+  // SUITE 1: Provider Architecture & Region Safety Audit
   // ============================================================================
-  console.log("\n--- SUITE 1: Provider Architecture & Preflight Audit ---");
+  console.log("\n--- SUITE 1: Provider Architecture & Region Safety Audit ---");
   try {
     const providers: any[] = await paymentService.listPaymentProviders();
     const razorpayProvider = providers.find((p) => p.id === "pp_razorpay_razorpay");
@@ -56,21 +57,24 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       "Suite 1: Architecture",
       "Test 1: pp_razorpay_razorpay registered in Payment Module",
       Boolean(razorpayProvider),
-      razorpayProvider?.id
+      razorpayProvider?.id,
+      "LOCAL INTEGRATION PASSED"
     );
     record(
       "Suite 1: Architecture",
       "Test 2: pp_razorpay_razorpay is enabled in database",
       Boolean(razorpayProvider?.is_enabled),
-      `is_enabled: ${razorpayProvider?.is_enabled}`
+      `is_enabled: ${razorpayProvider?.is_enabled}`,
+      "LOCAL INTEGRATION PASSED"
     );
 
     const systemProvider = providers.find((p) => p.id === "pp_system_default");
     record(
       "Suite 1: Architecture",
-      "Test 3: pp_system_default preserved for COD alongside Razorpay",
+      "Test 3: pp_system_default preserved for COD in India",
       Boolean(systemProvider?.is_enabled),
-      `is_enabled: ${systemProvider?.is_enabled}`
+      `is_enabled: ${systemProvider?.is_enabled}`,
+      "LOCAL INTEGRATION PASSED"
     );
 
     const regions: any[] = await query({
@@ -82,20 +86,34 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     const indiaProviders = (indiaRegion?.payment_providers || []).map((p: any) => p.id);
     record(
       "Suite 1: Architecture",
-      "Test 4: India Region links both Razorpay and COD providers",
+      "Test 4: India Region offers both Online Payment and Cash on Delivery",
       indiaProviders.includes("pp_razorpay_razorpay") && indiaProviders.includes("pp_system_default"),
-      JSON.stringify(indiaProviders)
+      JSON.stringify(indiaProviders),
+      "LOCAL INTEGRATION PASSED"
     );
 
+    // Strict COD Isolation: Non-INR regions must NEVER have pp_system_default
     const intlRegions = regions.filter((r) => r.currency_code !== "inr");
-    const allIntlHaveRazorpay = intlRegions.every((r) =>
+    const intlHasNoCOD = intlRegions.every((r) =>
+      !(r.payment_providers || []).some((p: any) => p.id === "pp_system_default")
+    );
+    record(
+      "Suite 1: Architecture",
+      "Test 5: International regions strictly exclude Cash on Delivery (COD Policy)",
+      intlHasNoCOD,
+      "COD eliminated from US, UAE, UK, EU",
+      "LOCAL INTEGRATION PASSED"
+    );
+
+    const intlHasRazorpay = intlRegions.every((r) =>
       (r.payment_providers || []).some((p: any) => p.id === "pp_razorpay_razorpay")
     );
     record(
       "Suite 1: Architecture",
-      "Test 5: International regions (USD, AED, GBP, EUR) configured for Razorpay",
-      allIntlHaveRazorpay,
-      `${intlRegions.length} international regions linked`
+      "Test 6: International regions (USD, AED, GBP, EUR) configured for Razorpay",
+      intlHasRazorpay,
+      `${intlRegions.length} international regions linked`,
+      "LOCAL INTEGRATION PASSED"
     );
   } catch (err: any) {
     record("Suite 1: Architecture", "Suite 1 Execution", false, err.message);
@@ -108,37 +126,37 @@ export default async function verifyMilestone02DB({ container }: { container: Me
   try {
     record(
       "Suite 2: Multi-Currency",
-      "Test 6: INR amount converted to integer paise (₹1,598.00 -> 159800 paise)",
+      "Test 7: INR amount converted to integer paise (₹1,598.00 -> 159800 paise)",
       toSmallestUnit(1598.0, "inr") === 159800,
       `Calculated: ${toSmallestUnit(1598.0, "inr")}`
     );
     record(
       "Suite 2: Multi-Currency",
-      "Test 7: USD amount converted to integer cents ($35.50 -> 3550 cents)",
+      "Test 8: USD amount converted to integer cents ($35.50 -> 3550 cents)",
       toSmallestUnit(35.5, "usd") === 3550,
       `Calculated: ${toSmallestUnit(35.5, "usd")}`
     );
     record(
       "Suite 2: Multi-Currency",
-      "Test 8: EUR amount converted to integer cents (€42.99 -> 4299 cents)",
+      "Test 9: EUR amount converted to integer cents (€42.99 -> 4299 cents)",
       toSmallestUnit(42.99, "eur") === 4299,
       `Calculated: ${toSmallestUnit(42.99, "eur")}`
     );
     record(
       "Suite 2: Multi-Currency",
-      "Test 9: AED amount converted to integer fils (50.00 AED -> 5000 fils)",
+      "Test 10: AED amount converted to integer fils (50.00 AED -> 5000 fils)",
       toSmallestUnit(50.0, "aed") === 5000,
       `Calculated: ${toSmallestUnit(50.0, "aed")}`
     );
     record(
       "Suite 2: Multi-Currency",
-      "Test 10: Zero-decimal currency JPY preserved without scaling (1000 JPY -> 1000)",
+      "Test 11: Zero-decimal currency JPY preserved without scaling (1000 JPY -> 1000)",
       toSmallestUnit(1000, "jpy") === 1000,
       `Calculated: ${toSmallestUnit(1000, "jpy")}`
     );
     record(
       "Suite 2: Multi-Currency",
-      "Test 11: Paise converted back to standard INR currency (159800 paise -> ₹1,598.00)",
+      "Test 12: Paise converted back to standard INR currency (159800 paise -> ₹1,598.00)",
       fromSmallestUnit(159800, "inr") === 1598.0,
       `Calculated: ${fromSmallestUnit(159800, "inr")}`
     );
@@ -151,7 +169,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     }
     record(
       "Suite 2: Multi-Currency",
-      "Test 12: Unsupported foreign currency rejected with MedusaError (No silent conversion)",
+      "Test 13: Unsupported foreign currency rejected with MedusaError (No silent conversion)",
       unsupportedRejected,
       "XYZ rejected"
     );
@@ -165,7 +183,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     }
     record(
       "Suite 2: Multi-Currency",
-      "Test 13: Eligible international currencies pass validation",
+      "Test 14: Eligible international currencies pass validation",
       supportedAccepted,
       "USD allowed"
     );
@@ -185,7 +203,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     const validCheckoutSig = generateCheckoutSignature(testOrderId, testPaymentId, testSecret);
     record(
       "Suite 3: Cryptography",
-      "Test 14: Valid checkout HMAC-SHA256 signature generated and verified",
+      "Test 15: Valid checkout HMAC-SHA256 signature generated and verified",
       verifyCheckoutSignature(testOrderId, testPaymentId, validCheckoutSig, testSecret),
       `Sig: ${validCheckoutSig.slice(0, 16)}...`
     );
@@ -193,14 +211,14 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     const tamperedSig = validCheckoutSig.slice(0, -4) + "ffff";
     record(
       "Suite 3: Cryptography",
-      "Test 15: Tampered checkout signature rejected",
+      "Test 16: Tampered checkout signature rejected",
       !verifyCheckoutSignature(testOrderId, testPaymentId, tamperedSig, testSecret),
       "Tampered signature rejected"
     );
 
     record(
       "Suite 3: Cryptography",
-      "Test 16: Mismatched order/payment IDs rejected with valid signature",
+      "Test 17: Mismatched order/payment IDs rejected with valid signature",
       !verifyCheckoutSignature("order_TAMPERED", testPaymentId, validCheckoutSig, testSecret),
       "Mismatched order rejected"
     );
@@ -224,21 +242,21 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     const validWebhookSig = generateWebhookSignature(rawWebhookBody, testSecret);
     record(
       "Suite 3: Cryptography",
-      "Test 17: Valid webhook raw-body HMAC-SHA256 signature verified",
+      "Test 18: Valid webhook raw-body HMAC-SHA256 signature verified",
       verifyWebhookSignature(rawWebhookBody, validWebhookSig, testSecret),
       `Webhook Sig: ${validWebhookSig.slice(0, 16)}...`
     );
 
     record(
       "Suite 3: Cryptography",
-      "Test 18: Invalid webhook signature rejected",
+      "Test 19: Invalid webhook signature rejected",
       !verifyWebhookSignature(rawWebhookBody, "invalid_webhook_signature", testSecret),
       "Invalid signature rejected"
     );
 
     record(
       "Suite 3: Cryptography",
-      "Test 19: Constant-time string comparison protects against timing attacks",
+      "Test 20: Constant-time string comparison protects against timing attacks",
       timingSafeEqual("secure_signature_hash_abc", "secure_signature_hash_abc") &&
         !timingSafeEqual("secure_signature_hash_abc", "secure_signature_hash_xyz"),
       "crypto.timingSafeEqual verified"
@@ -248,10 +266,30 @@ export default async function verifyMilestone02DB({ container }: { container: Me
   }
 
   // ============================================================================
-  // SUITE 4: Webhook Processing & Replay Protection (Unit Tests)
+  // SUITE 4: Durable Redis Webhook Deduplication & Concurrency (Unit Tests)
   // ============================================================================
-  console.log("\n--- SUITE 4: Webhook Processing & Replay Protection (Unit Tests) ---");
+  console.log("\n--- SUITE 4: Durable Redis Deduplication & Concurrency ---");
   try {
+    const memoryStore = new Map<string, string>();
+    const mockRedis = {
+      async set(key: string, value: string, mode?: string, duration?: number, flag?: string) {
+        if (flag === "NX") {
+          if (memoryStore.has(key)) return null;
+          memoryStore.set(key, value);
+          return "OK";
+        }
+        memoryStore.set(key, value);
+        return "OK";
+      },
+      async get(key: string) {
+        return memoryStore.get(key) || null;
+      },
+      async del(key: string) {
+        memoryStore.delete(key);
+        return 1;
+      },
+    };
+
     const webhookSecret = "rzp_webhook_secret_secure_987654";
     const providerService = new RazorpayPaymentProviderService(container, {
       key_id: "rzp_test_placeholder",
@@ -259,6 +297,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       webhook_secret: webhookSecret,
       mode: "test",
       supported_currencies: ["inr", "usd", "aed", "gbp", "eur"],
+      redis_client: mockRedis,
     });
 
     const sessionId = "payses_01M6TESTSESSION01";
@@ -298,11 +337,18 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 20: payment.captured mapped to PaymentActions.SUCCESSFUL",
+      "Test 21: payment.captured mapped to PaymentActions.SUCCESSFUL",
       actionResult.action === PaymentActions.SUCCESSFUL &&
         actionResult.data?.session_id === sessionId &&
         actionResult.data?.amount === 1885.64,
       `Action: ${actionResult.action}, Amount: ₹${actionResult.data?.amount}`
+    );
+
+    record(
+      "Suite 4: Webhook",
+      "Test 22: Event state transitioned durably to 'completed' in Redis",
+      (await mockRedis.get(`teb:webhook:razorpay:${eventId}`)) === "completed",
+      "Lock key: completed"
     );
 
     // 2. Replay attack: resending the EXACT same event ID
@@ -317,12 +363,73 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 21: Duplicate/Replay webhook rejected via event replay cache",
+      "Test 23: Duplicate/Replay webhook rejected via durable completed state",
       replayResult.action === PaymentActions.NOT_SUPPORTED,
       `Replay Action: ${replayResult.action}`
     );
 
-    // 3. payment.authorized webhook
+    // 3. Concurrency simulation: in-flight processing returns retriable conflict
+    const concurrentEventId = "evt_01M6TESTEVENT_CONCURRENT";
+    await mockRedis.set(`teb:webhook:razorpay:${concurrentEventId}`, "processing");
+
+    let conflictThrown = false;
+    try {
+      await providerService.getWebhookActionAndData({
+        data: { ...capturedPayload, id: concurrentEventId },
+        rawData: capturedRaw,
+        headers: {
+          "x-razorpay-signature": capturedSig,
+          "x-razorpay-event-id": concurrentEventId,
+        },
+      });
+    } catch (err: any) {
+      if (err instanceof MedusaError && err.type === MedusaError.Types.CONFLICT) {
+        conflictThrown = true;
+      }
+    }
+
+    record(
+      "Suite 4: Webhook",
+      "Test 24: In-flight concurrent webhook delivery throws retriable MedusaError.CONFLICT",
+      conflictThrown,
+      "Retriable conflict signaled to caller"
+    );
+
+    // 4. Redis outage: fail safely without silent memory fallback
+    const failingRedisProvider = new RazorpayPaymentProviderService(container, {
+      key_id: "rzp_test_placeholder",
+      key_secret: "placeholder_secret_key",
+      webhook_secret: webhookSecret,
+      mode: "test",
+      redis_client: {
+        async set() {
+          throw new Error("Redis connection refused");
+        },
+      },
+    });
+
+    let redisOutageSafe = false;
+    try {
+      await failingRedisProvider.getWebhookActionAndData({
+        data: capturedPayload,
+        rawData: capturedRaw,
+        headers: {
+          "x-razorpay-signature": capturedSig,
+          "x-razorpay-event-id": "evt_test_outage",
+        },
+      });
+    } catch {
+      redisOutageSafe = true;
+    }
+
+    record(
+      "Suite 4: Webhook",
+      "Test 25: Redis outage fails safely to preserve retriable state (No silent memory fallback)",
+      redisOutageSafe,
+      "Preserves gateway retriable state"
+    );
+
+    // 5. payment.authorized webhook
     const authSessionId = "payses_01M6TESTSESSION02";
     const authEventId = "evt_01M6TESTEVENT02";
     const authPayload = {
@@ -356,14 +463,14 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 22: payment.authorized mapped to PaymentActions.AUTHORIZED (USD)",
+      "Test 26: payment.authorized mapped to PaymentActions.AUTHORIZED (USD)",
       authResult.action === PaymentActions.AUTHORIZED &&
         authResult.data?.session_id === authSessionId &&
         authResult.data?.amount === 35.0,
       `Action: ${authResult.action}, Amount: $${authResult.data?.amount}`
     );
 
-    // 4. payment.failed webhook
+    // 6. payment.failed webhook
     const failSessionId = "payses_01M6TESTSESSION03";
     const failEventId = "evt_01M6TESTEVENT03";
     const failPayload = {
@@ -397,13 +504,13 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 23: payment.failed mapped to PaymentActions.FAILED",
+      "Test 27: payment.failed mapped to PaymentActions.FAILED",
       failResult.action === PaymentActions.FAILED &&
         failResult.data?.session_id === failSessionId,
       `Action: ${failResult.action}`
     );
 
-    // 5. Missing signature rejection
+    // 7. Missing signature rejection
     const unauthenticatedResult = await providerService.getWebhookActionAndData({
       data: capturedPayload,
       rawData: capturedRaw,
@@ -411,12 +518,12 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     });
     record(
       "Suite 4: Webhook",
-      "Test 24: Unauthenticated webhook missing signature returns NOT_SUPPORTED",
+      "Test 28: Unauthenticated webhook missing signature returns NOT_SUPPORTED",
       unauthenticatedResult.action === PaymentActions.NOT_SUPPORTED,
       `Action: ${unauthenticatedResult.action}`
     );
 
-    // 6. Foreign webhook without session_id (not originated from this store)
+    // 8. Foreign webhook without session_id (not originated from this store)
     const foreignEventId = "evt_01M6TESTEVENT04";
     const foreignPayload = {
       entity: "event",
@@ -448,7 +555,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 25: Foreign webhook without session_id ignored (Zero cross-tenant bleed)",
+      "Test 29: Foreign webhook without session_id ignored (Zero cross-tenant bleed)",
       foreignResult.action === PaymentActions.NOT_SUPPORTED,
       `Action: ${foreignResult.action}`
     );
@@ -535,7 +642,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 26: initiatePayment creates server-generated Razorpay order",
+      "Test 30: initiatePayment creates server-generated Razorpay order",
       initResponse.id === "order_mock_01M6RZP001" &&
         initResponse.data?.order_id === "order_mock_01M6RZP001" &&
         initResponse.data?.amount === 188564,
@@ -562,7 +669,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 27: authorizePayment validates cryptographic checkout signature",
+      "Test 31: authorizePayment validates cryptographic checkout signature",
       authResponse.status === PaymentSessionStatus.AUTHORIZED,
       `Status: ${authResponse.status}`
     );
@@ -579,7 +686,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 28: authorizePayment rejects invalid signature with ERROR status",
+      "Test 32: authorizePayment rejects invalid signature with ERROR status",
       badAuthResponse.status === PaymentSessionStatus.ERROR,
       `Status: ${badAuthResponse.status}`
     );
@@ -597,7 +704,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 29: capturePayment executes gateway capture call",
+      "Test 33: capturePayment executes gateway capture call",
       captureResponse.data?.status === "captured" && captureResponse.data?.captured === true,
       `Status: ${captureResponse.data?.status}`
     );
@@ -608,6 +715,8 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       data: {
         payment_id: "pay_mock_auth_01",
         currency: "inr",
+        amount: 188564,
+        amount_refunded: 0,
       },
       context: {},
     });
@@ -615,13 +724,37 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     const refundData = (refundResponse.data || {}) as Record<string, any>;
     record(
       "Suite 5: Lifecycle",
-      "Test 30: refundPayment calculates smallest unit refund amount (50000 paise)",
+      "Test 34: refundPayment calculates smallest unit refund amount (50000 paise)",
       refundData.refund?.amount === 50000 &&
         refundData.refund?.status === "processed",
       `Refund ID: ${refundData.refund_id}, Amount: ${refundData.refund?.amount} paise`
     );
 
-    // 6. cancelPayment
+    // 6. refundPayment exceeding captured balance is rejected
+    let excessRefundRejected = false;
+    try {
+      await mockProvider.refundPayment({
+        amount: 2000.0, // Exceeds ₹1,885.64
+        data: {
+          payment_id: "pay_mock_auth_01",
+          currency: "inr",
+          amount: 188564,
+          amount_refunded: 50000,
+        },
+        context: {},
+      });
+    } catch {
+      excessRefundRejected = true;
+    }
+
+    record(
+      "Suite 5: Lifecycle",
+      "Test 35: refundPayment rejects refund exceeding captured balance",
+      excessRefundRejected,
+      "Excess refund rejected"
+    );
+
+    // 7. cancelPayment
     const cancelResponse = await mockProvider.cancelPayment({
       data: { id: "pay_mock_auth_01" },
       context: {},
@@ -629,12 +762,12 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 31: cancelPayment updates payment state to canceled",
+      "Test 36: cancelPayment updates payment state to canceled",
       cancelResponse.data?.status === "canceled",
       `Status: ${cancelResponse.data?.status}`
     );
 
-    // 7. getPaymentStatus mapping
+    // 8. getPaymentStatus mapping
     const statusCreated = await mockProvider.getPaymentStatus({ data: { status: "created" } });
     const statusAuth = await mockProvider.getPaymentStatus({ data: { status: "authorized" } });
     const statusCaptured = await mockProvider.getPaymentStatus({ data: { status: "captured" } });
@@ -642,7 +775,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 32: getPaymentStatus accurately maps all Razorpay status primitives",
+      "Test 37: getPaymentStatus accurately maps all Razorpay status primitives",
       statusCreated.status === PaymentSessionStatus.PENDING &&
         statusAuth.status === PaymentSessionStatus.AUTHORIZED &&
         statusCaptured.status === PaymentSessionStatus.CAPTURED &&
@@ -680,12 +813,13 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 6: Storefront Integration",
-      "Test 33: GET /store/payment-providers returns pp_razorpay_razorpay for India region",
-      providerIds.includes("pp_razorpay_razorpay"),
-      JSON.stringify(providerIds)
+      "Test 38: GET /store/payment-providers returns both pp_razorpay_razorpay and pp_system_default for India",
+      providerIds.includes("pp_razorpay_razorpay") && providerIds.includes("pp_system_default"),
+      JSON.stringify(providerIds),
+      "LOCAL INTEGRATION PASSED"
     );
 
-    // 2. Check Store API Payment Providers for US (USD)
+    // 2. Check Store API Payment Providers for US (USD) - Must NOT have pp_system_default (COD)
     const usRegRes = await fetch(
       "http://localhost:9000/store/payment-providers?region_id=reg_01M6351W7B431VGASFQD9TN1VX",
       { headers }
@@ -695,9 +829,10 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 6: Storefront Integration",
-      "Test 34: GET /store/payment-providers returns pp_razorpay_razorpay for US region",
-      usProviderIds.includes("pp_razorpay_razorpay"),
-      JSON.stringify(usProviderIds)
+      "Test 39: GET /store/payment-providers returns ONLY pp_razorpay_razorpay for US (COD strictly absent)",
+      usProviderIds.includes("pp_razorpay_razorpay") && !usProviderIds.includes("pp_system_default"),
+      JSON.stringify(usProviderIds),
+      "LOCAL INTEGRATION PASSED"
     );
 
     // 3. Create Cart and Payment Collection
@@ -707,7 +842,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       body: JSON.stringify({
         region_id: "reg_01M617GB6G0JD57ZT481HYV9MV",
         currency_code: "inr",
-        email: "razorpay.test@theecombuddy.com",
+        email: "razorpay.hardening@theecombuddy.com",
       }),
     });
     const cartJson = (await cartRes.json()) as any;
@@ -734,14 +869,14 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       headers,
       body: JSON.stringify({
         shipping_address: {
-          first_name: "Rahul",
-          last_name: "Verma",
-          address_1: "742 Marine Drive",
-          city: "Mumbai",
-          province: "Maharashtra",
-          postal_code: "400001",
+          first_name: "Vikram",
+          last_name: "Seth",
+          address_1: "12 Connaught Place",
+          city: "New Delhi",
+          province: "Delhi",
+          postal_code: "110001",
           country_code: "in",
-          phone: "+919876543210",
+          phone: "+919811223344",
         },
       }),
     });
@@ -773,24 +908,25 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 6: Storefront Integration",
-      "Test 35: Payment collection created successfully for Razorpay cart",
+      "Test 40: Payment collection created successfully for Razorpay cart",
       Boolean(paymentCollectionId),
-      `Collection: ${paymentCollectionId}`
+      `Collection: ${paymentCollectionId}`,
+      "LOCAL INTEGRATION PASSED"
     );
 
-    // Clean up cart after verification
     record(
       "Suite 6: Storefront Integration",
-      "Test 36: Cart readiness verified with shipping, line items, and monetary subtotals",
+      "Test 41: Cart readiness verified with shipping, line items, and monetary subtotals",
       Boolean(payColJson.payment_collection?.amount > 0),
-      `Total: ₹${payColJson.payment_collection?.amount}`
+      `Total: ₹${payColJson.payment_collection?.amount}`,
+      "LOCAL INTEGRATION PASSED"
     );
   } catch (err: any) {
     record("Suite 6: Storefront Integration", "Suite 6 Execution", false, err.message);
   }
 
   // ============================================================================
-  // SUITE 7: Live Razorpay Gateway Sandbox Preflight Check (Phase 4 Guard)
+  // SUITE 7: Live Razorpay Gateway Sandbox Preflight (Phase 4 Guard)
   // ============================================================================
   console.log("\n--- SUITE 7: Live Razorpay Gateway Sandbox Audit ---");
   const keyId = process.env.RAZORPAY_KEY_ID || "";
@@ -804,12 +940,12 @@ export default async function verifyMilestone02DB({ container }: { container: Me
   if (isPlaceholder) {
     recordBlocked(
       "Suite 7: Gateway Sandbox",
-      "Test 37: Razorpay Live Sandbox Network Handshake",
+      "Test 42: Razorpay Live Sandbox Network Handshake",
       "Merchant test credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) not yet configured in local .env. Zero mock policy enforced: no simulated transactions fabricated."
     );
     recordBlocked(
       "Suite 7: Gateway Sandbox",
-      "Test 38: Live Razorpay Webhook Ingestion Delivery",
+      "Test 43: Live Razorpay Webhook Ingestion Delivery",
       "Requires public tunnel (ngrok / live IP) and real webhook secret configured on Razorpay dashboard."
     );
   } else {
@@ -826,15 +962,15 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       });
       record(
         "Suite 7: Gateway Sandbox",
-        "Test 37: Razorpay Live Sandbox Network Handshake",
+        "Test 42: Razorpay Live Sandbox Network Handshake",
         Boolean(order.id),
         `Live Sandbox Order: ${order.id}`,
-        true
+        "RAZORPAY TEST MODE PASSED"
       );
     } catch (err: any) {
       recordBlocked(
         "Suite 7: Gateway Sandbox",
-        "Test 37: Razorpay Live Sandbox Network Handshake",
+        "Test 42: Razorpay Live Sandbox Network Handshake",
         `Gateway returned: ${err.message}`
       );
     }
@@ -848,14 +984,16 @@ export default async function verifyMilestone02DB({ container }: { container: Me
   console.log("==============================================================================");
 
   const unitPassed = results.filter((r) => r.status === "UNIT TEST PASSED").length;
-  const sandboxPassed = results.filter((r) => r.status === "RAZORPAY SANDBOX PASSED").length;
+  const localPassed = results.filter((r) => r.status === "LOCAL INTEGRATION PASSED").length;
+  const sandboxPassed = results.filter((r) => r.status === "RAZORPAY TEST MODE PASSED").length;
   const blocked = results.filter((r) => r.status === "BLOCKED").length;
   const failed = results.filter((r) => r.status === "FAILED").length;
 
-  console.log(`UNIT TEST PASSED:         ${unitPassed}`);
-  console.log(`RAZORPAY SANDBOX PASSED:  ${sandboxPassed}`);
-  console.log(`BLOCKED (PER PHASE 4):    ${blocked}`);
-  console.log(`FAILED:                   ${failed}`);
+  console.log(`UNIT TEST PASSED:          ${unitPassed}`);
+  console.log(`LOCAL INTEGRATION PASSED:  ${localPassed}`);
+  console.log(`RAZORPAY TEST MODE PASSED: ${sandboxPassed}`);
+  console.log(`BLOCKED (PER PHASE 4):     ${blocked}`);
+  console.log(`FAILED:                    ${failed}`);
   console.log("==============================================================================");
 
   if (failed > 0) {

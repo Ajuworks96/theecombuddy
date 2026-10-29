@@ -1,13 +1,13 @@
 import { MedusaContainer } from "@medusajs/framework/types";
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils";
-import { updateRegionsWorkflow } from "@medusajs/core-flows";
 
 export default async function setupMilestone02DB({ container }: { container: MedusaContainer }) {
   console.log("==============================================================================");
-  console.log("[setup-02d-b] THE ECOM BUDDY — MILESTONE 02D-B RAZORPAY GATEWAY SETUP");
+  console.log("[setup-02d-b] THE ECOM BUDDY — MILESTONE 02D-B RAZORPAY GATEWAY & REGION SAFETY");
   console.log("==============================================================================");
 
   const query = container.resolve(ContainerRegistrationKeys.REMOTE_QUERY);
+  const link = container.resolve(ContainerRegistrationKeys.LINK);
   const paymentService = container.resolve(Modules.PAYMENT);
 
   // 1. Audit Registered Payment Providers
@@ -20,41 +20,57 @@ export default async function setupMilestone02DB({ container }: { container: Med
   }
   console.log("[setup-02d-b] pp_razorpay_razorpay confirmed active in database.");
 
-  // 2. Link Razorpay to India Region (preserving pp_system_default for COD) and International Regions
-  console.log("\n[setup-02d-b] Linking payment providers to commerce regions...");
+  // 2. Fetch all regions
   const allRegions: any[] = await query({
     entryPoint: "region",
     fields: ["id", "name", "currency_code", "payment_providers.id"],
   });
 
-  for (const r of allRegions) {
-    const existingProviderIds: string[] = (r.payment_providers || []).map((p: any) => p.id);
-    let targetProviders: string[];
+  // 3. Remove pp_system_default (COD) from all International regions
+  console.log("\n[setup-02d-b] Enforcing COD safety policy: stripping pp_system_default from foreign markets...");
+  const intlRegions = allRegions.filter((r) => r.currency_code.toLowerCase() !== "inr");
+  const dismissPayload = intlRegions.map((r) => ({
+    [Modules.REGION]: { region_id: r.id },
+    [Modules.PAYMENT]: { payment_provider_id: "pp_system_default" },
+  }));
 
-    if (r.currency_code.toLowerCase() === "inr") {
-      // India supports both Cash on Delivery (pp_system_default) and Online Payment (pp_razorpay_razorpay)
-      targetProviders = Array.from(new Set([...existingProviderIds, "pp_system_default", "pp_razorpay_razorpay"]));
-    } else {
-      // International regions support Online Payment (pp_razorpay_razorpay)
-      targetProviders = Array.from(new Set([...existingProviderIds, "pp_razorpay_razorpay"]));
-    }
+  try {
+    await link.dismiss(dismissPayload);
+    console.log(`[setup-02d-b] Dismissed pp_system_default from ${intlRegions.length} international regions.`);
+  } catch (err: any) {
+    console.log(`[setup-02d-b] Note on dismiss: ${err.message}`);
+  }
 
-    const needsUpdate = targetProviders.some((tp) => !existingProviderIds.includes(tp));
-    if (needsUpdate) {
-      console.log(`[setup-02d-b] Updating ${r.name} (${r.currency_code.toUpperCase()}) with providers: ${JSON.stringify(targetProviders)}...`);
-      await updateRegionsWorkflow(container).run({
-        input: {
-          selector: { id: r.id },
-          update: { payment_providers: targetProviders },
+  // 4. Ensure pp_razorpay_razorpay is linked to all 5 markets
+  console.log("\n[setup-02d-b] Linking pp_razorpay_razorpay to all 5 markets...");
+  const linkPayload = allRegions.map((r) => ({
+    [Modules.REGION]: { region_id: r.id },
+    [Modules.PAYMENT]: { payment_provider_id: "pp_razorpay_razorpay" },
+  }));
+  try {
+    await link.create(linkPayload);
+    console.log("[setup-02d-b] Verified pp_razorpay_razorpay link on all regions.");
+  } catch (err: any) {
+    console.log(`[setup-02d-b] Note on link create: ${err.message}`);
+  }
+
+  // 5. Ensure India retains pp_system_default for Cash on Delivery
+  const indiaRegion = allRegions.find((r) => r.currency_code.toLowerCase() === "inr");
+  if (indiaRegion) {
+    try {
+      await link.create([
+        {
+          [Modules.REGION]: { region_id: indiaRegion.id },
+          [Modules.PAYMENT]: { payment_provider_id: "pp_system_default" },
         },
-      });
-      console.log(`[setup-02d-b] Region ${r.name} updated successfully.`);
-    } else {
-      console.log(`[setup-02d-b] Region ${r.name} already has expected payment providers: ${JSON.stringify(existingProviderIds)}.`);
+      ]);
+      console.log("[setup-02d-b] Verified pp_system_default link on India Region.");
+    } catch {
+      // Already linked
     }
   }
 
   console.log("\n==============================================================================");
-  console.log("[setup-02d-b] MILESTONE 02D-B RAZORPAY SETUP COMPLETED SUCCESSFULLY");
+  console.log("[setup-02d-b] REGION PAYMENT SAFETY SETUP COMPLETED SUCCESSFULLY");
   console.log("==============================================================================");
 }

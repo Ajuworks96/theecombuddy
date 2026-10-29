@@ -225,3 +225,4 @@ FAILED:                   0
 * **Live Merchant Activation**: In production deployments, merchants insert their activated Razorpay credentials into `.env`. Once inserted, live sandbox tests transition automatically from `BLOCKED` to `RAZORPAY SANDBOX PASSED`.
 * **Milestone 02D-C (Cashfree)**: Cashfree provider adapter, UPI Intent, and courier COD auto-reconciliation are scheduled for Milestone 02D-C.
 * **Milestones 03 & 04**: Merchant admin dashboard UI and storefront checkout frontend elements will be designed in subsequent milestones.
+

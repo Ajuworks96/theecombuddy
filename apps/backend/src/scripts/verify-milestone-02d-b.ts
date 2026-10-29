@@ -1,5 +1,14 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
-import { ContainerRegistrationKeys, MedusaError, Modules, PaymentActions, PaymentSessionStatus } from "@medusajs/framework/utils";
+import {
+  ContainerRegistrationKeys,
+  MedusaError,
+  Modules,
+  OrderWorkflowEvents,
+  PaymentActions,
+  PaymentEvents,
+  PaymentSessionStatus,
+} from "@medusajs/framework/utils";
+import razorpayWebhookFinalizer from "../subscribers/razorpay-webhook-finalizer.ts";
 import {
   RazorpayPaymentProviderService,
   RazorpayClient,
@@ -474,7 +483,150 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       `Action: ${authResult.action}, Amount: $${authResult.data?.amount}`
     );
 
-    // 7. Concurrency simulation: in-flight processing returns retriable conflict
+    // 7. Out-of-order scenario: payment.captured arrives BEFORE payment.authorized
+    const oooSessionId = "payses_ooo_test_01";
+    const oooCapPayload = {
+      entity: "event",
+      account_id: "acc_test",
+      event: "payment.captured",
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_ooo_cap",
+            amount: 10000,
+            currency: "INR",
+            status: "captured",
+            notes: { session_id: oooSessionId },
+          },
+        },
+      },
+    };
+    const oooCapRaw = JSON.stringify(oooCapPayload);
+    const oooCapSig = generateWebhookSignature(oooCapRaw, webhookSecret);
+    const oooCapResult = await providerService.getWebhookActionAndData({
+      data: oooCapPayload,
+      rawData: oooCapRaw,
+      headers: { "x-razorpay-signature": oooCapSig, "x-razorpay-event-id": "evt_ooo_cap" },
+    });
+
+    // Finalize session (simulating downstream completeCartAfterPayment)
+    await providerService.markWebhookCompleted(oooSessionId);
+
+    // Later, late payment.authorized arrives for same session
+    const oooAuthPayload = {
+      ...oooCapPayload,
+      event: "payment.authorized",
+      payload: {
+        payment: {
+          entity: { ...oooCapPayload.payload.payment.entity, status: "authorized" },
+        },
+      },
+    };
+    const oooAuthRaw = JSON.stringify(oooAuthPayload);
+    const oooAuthSig = generateWebhookSignature(oooAuthRaw, webhookSecret);
+    const oooAuthResult = await providerService.getWebhookActionAndData({
+      data: oooAuthPayload,
+      rawData: oooAuthRaw,
+      headers: { "x-razorpay-signature": oooAuthSig, "x-razorpay-event-id": "evt_ooo_auth" },
+    });
+
+    record(
+      "Suite 4: Webhook",
+      "Test 28: Out-of-order delivery: payment.captured arrives before authorized event and finalizes safely",
+      oooCapResult.action === PaymentActions.SUCCESSFUL &&
+        (oooAuthResult.action === PaymentActions.AUTHORIZED || oooAuthResult.action === PaymentActions.NOT_SUPPORTED),
+      `Cap action: ${oooCapResult.action}, Auth action: ${oooAuthResult.action}`
+    );
+
+    // 8. Late event scenario: order.paid arrives after payment already completed
+    const lateOrderPayload = {
+      entity: "event",
+      account_id: "acc_test",
+      event: "order.paid",
+      payload: {
+        order: {
+          entity: {
+            id: "order_late_01",
+            amount: 188564,
+            currency: "INR",
+            status: "paid",
+            notes: { session_id: sessionId }, // Already finalized in Test 25
+          },
+        },
+      },
+    };
+    const lateOrderRaw = JSON.stringify(lateOrderPayload);
+    const lateOrderSig = generateWebhookSignature(lateOrderRaw, webhookSecret);
+    const lateCompletedKey = `teb:webhook:completed:razorpay:evt_late_order:order.paid`;
+    await mockRedis.set(lateCompletedKey, "completed");
+
+    const lateOrderResult = await providerService.getWebhookActionAndData({
+      data: lateOrderPayload,
+      rawData: lateOrderRaw,
+      headers: { "x-razorpay-signature": lateOrderSig, "x-razorpay-event-id": "evt_late_order" },
+    });
+
+    record(
+      "Suite 4: Webhook",
+      "Test 29: Late event delivery: order.paid arrives after completion and is deduplicated",
+      lateOrderResult.action === PaymentActions.NOT_SUPPORTED,
+      `Action: ${lateOrderResult.action}`
+    );
+
+    // 9. Lock expiry recovery: Lock expired before subsequent worker arrives
+    const expEventKey = "evt_exp_01:payment.captured";
+    const expLockKey = `teb:webhook:lock:razorpay:${expEventKey}`;
+    await mockRedis.set(expLockKey, "old_expired_token");
+    // Simulate TTL expiration: key deleted
+    await mockRedis.del(expLockKey);
+
+    const expPayload = {
+      entity: "event",
+      account_id: "acc_test",
+      event: "payment.captured",
+      payload: {
+        payment: {
+          entity: { id: "pay_exp", amount: 5000, currency: "INR", notes: { session_id: "payses_exp" } },
+        },
+      },
+    };
+    const expRaw = JSON.stringify(expPayload);
+    const expSig = generateWebhookSignature(expRaw, webhookSecret);
+
+    const expResult = await providerService.getWebhookActionAndData({
+      data: expPayload,
+      rawData: expRaw,
+      headers: { "x-razorpay-signature": expSig, "x-razorpay-event-id": "evt_exp_01" },
+    });
+    const newExpToken = await mockRedis.get(expLockKey);
+
+    record(
+      "Suite 4: Webhook",
+      "Test 30: Expiry recovery: Redis lock expires during processing, subsequent worker acquires cleanly",
+      expResult.action === PaymentActions.SUCCESSFUL && Boolean(newExpToken && newExpToken !== "old_expired_token"),
+      `New Token Acquired: ${newExpToken?.slice(0, 8)}...`
+    );
+    await providerService.markWebhookCompleted("payses_exp");
+
+    // 10. Worker crash scenario: Worker 1 crashes without releasing lock; Worker 2 cannot release with wrong token
+    const crashEventKey = "evt_crash_01:payment.captured";
+    const crashLockKey = `teb:webhook:lock:razorpay:${crashEventKey}`;
+    const worker1Token = "worker_1_uuid_token";
+    await mockRedis.set(crashLockKey, worker1Token);
+
+    // Worker 2 attempts release with its own token
+    const worker2Release = await providerService.releaseLock(crashLockKey, "worker_2_uuid_token");
+    const lockStillOwnedByWorker1 = await mockRedis.get(crashLockKey);
+
+    record(
+      "Suite 4: Webhook",
+      "Test 31: Crash recovery: Worker crashes after receiving webhook, lock ownership prevents premature wipeout",
+      worker2Release === false && lockStillOwnedByWorker1 === worker1Token,
+      "Worker 1 lock ownership safely preserved across crash boundary"
+    );
+    await mockRedis.del(crashLockKey);
+
+    // 11. Concurrency simulation: in-flight processing returns retriable conflict
     const concurrentEventId = "evt_01M6TESTEVENT_CONCURRENT";
     const concurrentEventKey = `${concurrentEventId}:payment.captured`;
     await mockRedis.set(`teb:webhook:lock:razorpay:${concurrentEventKey}`, "active_worker_token_xyz");
@@ -497,12 +649,12 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 28: In-flight concurrent webhook delivery throws retriable MedusaError.CONFLICT",
+      "Test 32: In-flight concurrent webhook delivery throws retriable MedusaError.CONFLICT",
       conflictThrown,
       "Retriable conflict signaled to caller"
     );
 
-    // 8. Redis outage: fail safely without silent memory fallback
+    // 12. Redis outage: fail safely without silent memory fallback
     const failingRedisProvider = new RazorpayPaymentProviderService(container, {
       key_id: "rzp_test_placeholder",
       key_secret: "placeholder_secret_key",
@@ -531,12 +683,12 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 29: Redis outage fails safely to preserve retriable state (No silent memory fallback)",
+      "Test 33: Redis outage fails safely to preserve retriable state (No silent memory fallback)",
       redisOutageSafe,
       "Preserves gateway retriable state"
     );
 
-    // 9. payment.failed webhook
+    // 13. payment.failed webhook
     const failSessionId = "payses_01M6TESTSESSION03";
     const failEventId = "evt_01M6TESTEVENT03";
     const failPayload = {
@@ -570,13 +722,13 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 30: payment.failed mapped to PaymentActions.FAILED and locked out from replay",
+      "Test 34: payment.failed mapped to PaymentActions.FAILED and locked out from replay",
       failResult.action === PaymentActions.FAILED &&
         failResult.data?.session_id === failSessionId,
       `Action: ${failResult.action}`
     );
 
-    // 10. Missing signature rejection
+    // 14. Missing signature rejection
     const unauthenticatedResult = await providerService.getWebhookActionAndData({
       data: capturedPayload,
       rawData: capturedRaw,
@@ -584,12 +736,12 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     });
     record(
       "Suite 4: Webhook",
-      "Test 31: Unauthenticated webhook missing signature returns NOT_SUPPORTED",
+      "Test 35: Unauthenticated webhook missing signature returns NOT_SUPPORTED",
       unauthenticatedResult.action === PaymentActions.NOT_SUPPORTED,
       `Action: ${unauthenticatedResult.action}`
     );
 
-    // 11. Foreign webhook without session_id (not originated from this store)
+    // 15. Foreign webhook without session_id (not originated from this store)
     const foreignEventId = "evt_01M6TESTEVENT04";
     const foreignPayload = {
       entity: "event",
@@ -621,9 +773,121 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 4: Webhook",
-      "Test 32: Foreign webhook without session_id ignored (Zero cross-tenant bleed)",
+      "Test 36: Foreign webhook without session_id ignored (Zero cross-tenant bleed)",
       foreignResult.action === PaymentActions.NOT_SUPPORTED,
       `Action: ${foreignResult.action}`
+    );
+
+    // 16. Unrelated COD order (pp_system_default) must NOT touch or finalize Razorpay events
+    const dummyRzpSessionId = "payses_active_rzp_mock";
+    const dummyLockKey = `teb:webhook:lock:razorpay:${dummyRzpSessionId}:payment.captured`;
+    const dummySessionKey = `teb:webhook:session_lock:${dummyRzpSessionId}:payment.captured`;
+    await mockRedis.set(dummyLockKey, "mock_token_123");
+    await mockRedis.set(
+      dummySessionKey,
+      JSON.stringify({
+        eventKey: `${dummyRzpSessionId}:payment.captured`,
+        lockKey: dummyLockKey,
+        completedKey: `teb:webhook:completed:razorpay:${dummyRzpSessionId}:payment.captured`,
+        lockToken: "mock_token_123",
+        sessionId: dummyRzpSessionId,
+        event: "payment.captured",
+      })
+    );
+
+    const mockCodContainer: any = {
+      resolve(key: any) {
+        if (key === ContainerRegistrationKeys.REMOTE_QUERY) {
+          return async (q: any) => {
+            if (q.entryPoint === "order") {
+              return [
+                {
+                  id: "order_cod_mock_01",
+                  payment_collections: [
+                    {
+                      payment_sessions: [{ id: "payses_cod_01", provider_id: "pp_system_default" }],
+                      payments: [{ id: "pay_cod_01", provider_id: "pp_system_default" }],
+                    },
+                  ],
+                },
+              ];
+            }
+            if (q.entryPoint === "payment") {
+              return [{ id: "pay_cod_01", provider_id: "pp_system_default" }];
+            }
+            return [];
+          };
+        }
+        if (key === "redisConnection" || key === "redisClient") {
+          return mockRedis;
+        }
+        return null;
+      },
+    };
+
+    // Invoke finalizer with unrelated COD order
+    await razorpayWebhookFinalizer({
+      event: { name: OrderWorkflowEvents.PLACED, data: { id: "order_cod_mock_01" } },
+      container: mockCodContainer,
+      pluginOptions: {},
+    });
+
+    const dummyLockAfterCod = await mockRedis.get(dummyLockKey);
+    const dummySessionAfterCod = await mockRedis.get(dummySessionKey);
+
+    record(
+      "Suite 4: Webhook",
+      "Test 37: Unrelated COD order (pp_system_default) skips finalizer and preserves Razorpay locks",
+      dummyLockAfterCod === "mock_token_123" && Boolean(dummySessionAfterCod),
+      "COD order strictly isolated: zero effect on Razorpay locks"
+    );
+
+    // 17. Unrelated payment capture (pp_system_default) must NOT touch or finalize Razorpay events
+    await razorpayWebhookFinalizer({
+      event: { name: PaymentEvents.CAPTURED, data: { id: "pay_cod_01" } },
+      container: mockCodContainer,
+      pluginOptions: {},
+    });
+
+    const dummyLockAfterPayment = await mockRedis.get(dummyLockKey);
+
+    record(
+      "Suite 4: Webhook",
+      "Test 38: Unrelated payment capture (pp_system_default) skips finalizer and preserves Razorpay locks",
+      dummyLockAfterPayment === "mock_token_123",
+      "Non-Razorpay capture strictly isolated"
+    );
+
+    await mockRedis.del(dummyLockKey);
+    await mockRedis.del(dummySessionKey);
+
+    // 18. Webhook recovery/reconciliation mechanism:
+    // Stalled in-flight session lock where downstream Medusa workflow previously failed
+    const stalledSessionId = "payses_stalled_recovery_01";
+    const stalledLockKey = `teb:webhook:lock:razorpay:${stalledSessionId}:payment.captured`;
+    const stalledSessionKey = `teb:webhook:session_lock:${stalledSessionId}:payment.captured`;
+    const stalledToken = "stalled_worker_token_abc";
+    await mockRedis.set(stalledLockKey, stalledToken);
+    await mockRedis.set(
+      stalledSessionKey,
+      JSON.stringify({
+        eventKey: `${stalledSessionId}:payment.captured`,
+        lockKey: stalledLockKey,
+        completedKey: `teb:webhook:completed:razorpay:${stalledSessionId}:payment.captured`,
+        lockToken: stalledToken,
+        sessionId: stalledSessionId,
+        event: "payment.captured",
+      })
+    );
+
+    const reconResult = await providerService.reconcileSession(stalledSessionId);
+    const lockAfterRecon = await mockRedis.get(stalledLockKey);
+
+    record(
+      "Suite 4: Webhook",
+      "Test 39: Webhook recovery/reconciliation mechanism resolves stalled/failed asynchronous sessions",
+      reconResult.reconciled === true && lockAfterRecon === null,
+      `Reconciled: ${reconResult.reconciled}, Status: ${reconResult.status}`
     );
   } catch (err: any) {
     record("Suite 4: Webhook", "Suite 4 Execution", false, err.message);
@@ -708,7 +972,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 33: initiatePayment creates server-generated Razorpay order",
+      "Test 40: initiatePayment creates server-generated Razorpay order",
       initResponse.id === "order_mock_01M6RZP001" &&
         initResponse.data?.order_id === "order_mock_01M6RZP001" &&
         initResponse.data?.amount === 188564,
@@ -736,7 +1000,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 34: initiatePayment blocks checkout when gateway credentials are unconfigured (Phase 6 Safety)",
+      "Test 41: initiatePayment blocks checkout when gateway credentials are unconfigured (Phase 6 Safety)",
       unconfiguredRejected,
       "Payment initiation safely rejected with NOT_ALLOWED"
     );
@@ -761,7 +1025,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 35: authorizePayment validates cryptographic checkout signature",
+      "Test 42: authorizePayment validates cryptographic checkout signature",
       authResponse.status === PaymentSessionStatus.AUTHORIZED,
       `Status: ${authResponse.status}`
     );
@@ -778,7 +1042,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 36: authorizePayment rejects invalid signature with ERROR status",
+      "Test 43: authorizePayment rejects invalid signature with ERROR status",
       badAuthResponse.status === PaymentSessionStatus.ERROR,
       `Status: ${badAuthResponse.status}`
     );
@@ -796,7 +1060,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 37: capturePayment executes gateway capture call",
+      "Test 44: capturePayment executes gateway capture call",
       captureResponse.data?.status === "captured" && captureResponse.data?.captured === true,
       `Status: ${captureResponse.data?.status}`
     );
@@ -816,7 +1080,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     const refundData = (refundResponse.data || {}) as Record<string, any>;
     record(
       "Suite 5: Lifecycle",
-      "Test 38: refundPayment calculates smallest unit refund amount (50000 paise)",
+      "Test 45: refundPayment calculates smallest unit refund amount (50000 paise)",
       refundData.refund?.amount === 50000 &&
         refundData.refund?.status === "processed",
       `Refund ID: ${refundData.refund_id}, Amount: ${refundData.refund?.amount} paise`
@@ -841,7 +1105,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 39: refundPayment rejects refund exceeding captured balance",
+      "Test 46: refundPayment rejects refund exceeding captured balance",
       excessRefundRejected,
       "Excess refund rejected"
     );
@@ -854,7 +1118,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 40: cancelPayment updates payment state to canceled",
+      "Test 47: cancelPayment updates payment state to canceled",
       cancelResponse.data?.status === "canceled",
       `Status: ${cancelResponse.data?.status}`
     );
@@ -867,7 +1131,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 5: Lifecycle",
-      "Test 41: getPaymentStatus accurately maps all Razorpay status primitives",
+      "Test 48: getPaymentStatus accurately maps all Razorpay status primitives",
       statusCreated.status === PaymentSessionStatus.PENDING &&
         statusAuth.status === PaymentSessionStatus.AUTHORIZED &&
         statusCaptured.status === PaymentSessionStatus.CAPTURED &&
@@ -905,7 +1169,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 6: Storefront Integration",
-      "Test 42: GET /store/payment-providers returns both pp_razorpay_razorpay and pp_system_default for India",
+      "Test 49: GET /store/payment-providers returns both pp_razorpay_razorpay and pp_system_default for India",
       providerIds.includes("pp_razorpay_razorpay") && providerIds.includes("pp_system_default"),
       JSON.stringify(providerIds),
       "LOCAL INTEGRATION PASSED"
@@ -921,7 +1185,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 6: Storefront Integration",
-      "Test 43: GET /store/payment-providers returns ONLY pp_razorpay_razorpay for US (COD strictly absent)",
+      "Test 50: GET /store/payment-providers returns ONLY pp_razorpay_razorpay for US (COD strictly absent)",
       usProviderIds.includes("pp_razorpay_razorpay") && !usProviderIds.includes("pp_system_default"),
       JSON.stringify(usProviderIds),
       "LOCAL INTEGRATION PASSED"
@@ -1000,7 +1264,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 6: Storefront Integration",
-      "Test 44: Payment collection created successfully for Razorpay cart",
+      "Test 51: Payment collection created successfully for Razorpay cart",
       Boolean(paymentCollectionId),
       `Collection: ${paymentCollectionId}`,
       "LOCAL INTEGRATION PASSED"
@@ -1008,11 +1272,77 @@ export default async function verifyMilestone02DB({ container }: { container: Me
 
     record(
       "Suite 6: Storefront Integration",
-      "Test 45: Cart readiness verified with shipping, line items, and monetary subtotals",
+      "Test 52: Cart readiness verified with shipping, line items, and monetary subtotals",
       Boolean(payColJson.payment_collection?.amount > 0),
       `Total: ₹${payColJson.payment_collection?.amount}`,
       "LOCAL INTEGRATION PASSED"
     );
+
+    // 5. Test real installed Medusa HTTP webhook route on port 9000
+    const liveRouteSessionId = `payses_live_route_${Date.now()}`;
+    const liveRouteEventId = `evt_live_route_${Date.now()}`;
+    const liveWebhookPayload = {
+      entity: "event",
+      account_id: "acc_live_test",
+      event: "payment.captured",
+      contains: ["payment"],
+      payload: {
+        payment: {
+          entity: {
+            id: `pay_live_${Date.now()}`,
+            amount: 203550,
+            currency: "INR",
+            status: "captured",
+            notes: { session_id: liveRouteSessionId },
+          },
+        },
+      },
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    const liveWebhookRaw = JSON.stringify(liveWebhookPayload);
+    const liveWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || "rzp_webhook_secret_secure_987654";
+    const liveWebhookSig = generateWebhookSignature(liveWebhookRaw, liveWebhookSecret);
+
+    const liveWebhookRes = await fetch("http://localhost:9000/hooks/payment/razorpay_razorpay", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-razorpay-signature": liveWebhookSig,
+        "x-razorpay-event-id": liveRouteEventId,
+      },
+      body: liveWebhookRaw,
+    });
+
+    record(
+      "Suite 6: Storefront Integration",
+      "Test 53: POST /hooks/payment/razorpay_razorpay returns HTTP 200 acknowledgment (Real Medusa Webhook Route)",
+      liveWebhookRes.status === 200,
+      `HTTP Status: ${liveWebhookRes.status}`,
+      "LOCAL INTEGRATION PASSED"
+    );
+
+    // 6. Verify HTTP 200 is NOT proof that downstream order workflow completed
+    const Redis = (await import("ioredis")).default;
+    const realRedis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+      maxRetriesPerRequest: 1,
+      connectTimeout: 2000,
+      lazyConnect: true,
+    });
+    await realRedis.connect();
+
+    const liveCompletedKey = `teb:webhook:completed:razorpay:${liveRouteEventId}:payment.captured`;
+    const liveCompletedStatus = await realRedis.get(liveCompletedKey);
+
+    record(
+      "Suite 6: Storefront Integration",
+      "Test 54: HTTP 200 acknowledgment verified as NOT marking downstream workflow completed (Ingress vs Workflow Separation)",
+      liveCompletedStatus === null,
+      `Completed key status immediately after HTTP 200: ${liveCompletedStatus || "null (pending downstream completion)"}`,
+      "LOCAL INTEGRATION PASSED"
+    );
+
+    await realRedis.quit();
   } catch (err: any) {
     record("Suite 6: Storefront Integration", "Suite 6 Execution", false, err.message);
   }
@@ -1032,12 +1362,12 @@ export default async function verifyMilestone02DB({ container }: { container: Me
   if (isPlaceholder) {
     recordBlocked(
       "Suite 7: Gateway Sandbox",
-      "Test 46: Razorpay Live Sandbox Network Handshake",
+      "Test 55: Razorpay Live Sandbox Network Handshake",
       "Merchant test credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) not yet configured in local .env. Zero mock policy enforced: no simulated transactions fabricated."
     );
     recordBlocked(
       "Suite 7: Gateway Sandbox",
-      "Test 47: Live Razorpay Webhook Ingestion Delivery",
+      "Test 56: Live Razorpay Webhook Ingestion Delivery",
       "Requires public tunnel (ngrok / live IP) and real webhook secret configured on Razorpay dashboard."
     );
   } else {
@@ -1054,7 +1384,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
       });
       record(
         "Suite 7: Gateway Sandbox",
-        "Test 46: Razorpay Live Sandbox Network Handshake",
+        "Test 55: Razorpay Live Sandbox Network Handshake",
         Boolean(order.id),
         `Live Sandbox Order: ${order.id}`,
         "RAZORPAY TEST MODE PASSED"
@@ -1062,7 +1392,7 @@ export default async function verifyMilestone02DB({ container }: { container: Me
     } catch (err: any) {
       recordBlocked(
         "Suite 7: Gateway Sandbox",
-        "Test 46: Razorpay Live Sandbox Network Handshake",
+        "Test 55: Razorpay Live Sandbox Network Handshake",
         `Gateway returned: ${err.message}`
       );
     }

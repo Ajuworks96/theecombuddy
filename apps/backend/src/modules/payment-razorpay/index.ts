@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import {
   AbstractPaymentProvider,
+  ContainerRegistrationKeys,
   MedusaError,
   ModuleProvider,
   Modules,
@@ -596,6 +597,102 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
     } catch {
       // Ignore Redis scan errors
     }
+  }
+
+  /**
+   * Reconciliation mechanism:
+   * Reconciles an accepted webhook event whose asynchronous processing
+   * may have stalled, timed out, or crashed downstream.
+   *
+   * 1. Inspects active session locks in Redis.
+   * 2. If an order already exists for the session's cart, marks the event completed and frees the lock.
+   * 3. If no order exists, releases the worker lock so gateway retries can re-execute safely.
+   */
+  public async reconcileSession(
+    sessionId: string
+  ): Promise<{
+    reconciled: boolean;
+    status: string;
+    orderId?: string;
+    details?: string;
+  }> {
+    const redis = await this.getRedisClient();
+    if (!redis) {
+      return { reconciled: false, status: "redis_unavailable" };
+    }
+
+    // 1. Locate any in-flight or pending session locks
+    const keys: string[] = await redis.keys(`teb:webhook:session_lock:${sessionId}:*`);
+
+    if (keys.length === 0) {
+      return {
+        reconciled: true,
+        status: "already_completed_or_empty",
+        details: "No active in-flight session locks found for this session ID.",
+      };
+    }
+
+    let meta: any = null;
+    for (const k of keys) {
+      const raw = await redis.get(k);
+      if (raw) {
+        try {
+          meta = JSON.parse(raw);
+          break;
+        } catch {}
+      }
+    }
+
+    if (!meta) {
+      return { reconciled: false, status: "corrupt_lock_metadata" };
+    }
+
+    // 2. Query Medusa database to determine if the order was already completed
+    try {
+      const query = this.container["remoteQuery"] || this.container[ContainerRegistrationKeys.REMOTE_QUERY];
+      if (query) {
+        const orderCarts: any[] = await query({
+          entryPoint: "cart_payment_collection",
+          fields: ["cart_id"],
+          variables: { filters: { payment_collection: { payment_sessions: { id: sessionId } } } },
+        });
+
+        const cartId = orderCarts?.[0]?.cart_id;
+        if (cartId) {
+          const orders: any[] = await query({
+            entryPoint: "order_cart",
+            fields: ["id", "order_id"],
+            variables: { filters: { cart_id: cartId } },
+          });
+
+          if (orders && orders.length > 0 && orders[0].order_id) {
+            // Order was already placed! Finalize the webhook event.
+            await this.markWebhookCompleted(sessionId);
+            return {
+              reconciled: true,
+              status: "order_already_placed",
+              orderId: orders[0].order_id,
+              details: "Order verified in database. Transitioned webhook state to completed.",
+            };
+          }
+        }
+      }
+    } catch {
+      // Remote query check failed; proceed to lock release / retry enablement
+    }
+
+    // 3. If order not yet created: release the in-flight lock so retries can proceed
+    if (meta.lockKey && meta.lockToken) {
+      await this.releaseLock(meta.lockKey, meta.lockToken);
+    } else if (meta.lockKey) {
+      await redis.del(meta.lockKey);
+    }
+
+    return {
+      reconciled: true,
+      status: "lock_released_for_retry",
+      details: "In-flight lock released. Webhook gateway retry can now reconcile downstream.",
+    };
   }
 
   async initiatePayment(

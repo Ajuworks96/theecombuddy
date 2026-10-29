@@ -93,6 +93,14 @@ export async function POST(req: NextRequest) {
       application_method,
     };
 
+    if (body.campaign) {
+      payload.campaign = body.campaign;
+    }
+
+    if (Array.isArray(body.rules) && body.rules.length > 0) {
+      payload.rules = body.rules;
+    }
+
     const promotion = await medusaAdmin.createPromotion(session.token, payload);
     return NextResponse.json({ promotion }, { status: 201 });
   } catch (err: any) {
@@ -102,3 +110,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

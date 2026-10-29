@@ -339,12 +339,14 @@ export class MedusaAdminClient {
       q?: string;
       status?: string;
       order?: string;
+      fields?: string;
     } = {}
   ): Promise<{ products: AdminProduct[]; count: number; limit: number; offset: number }> {
     const query = new URLSearchParams();
     query.set("limit", String(params.limit ?? 20));
     query.set("offset", String(params.offset ?? 0));
     if (params.q) query.set("q", params.q.trim());
+    if (params.fields) query.set("fields", params.fields);
     if (params.status) {
       if (Array.isArray(params.status)) {
         params.status.forEach((s) => query.append("status[]", s));
@@ -961,11 +963,83 @@ export class MedusaAdminClient {
   }
 
   /**
-   * Retrieve regions
+   * Retrieve regions with countries and payment providers
    */
-  async getRegions(token: string): Promise<{ regions: any[]; count: number }> {
+  async getRegions(
+    token: string,
+    params: { limit?: number; offset?: number } = {}
+  ): Promise<{ regions: any[]; count: number }> {
+    const query = new URLSearchParams();
+    query.set("limit", String(params.limit ?? 50));
+    query.set("offset", String(params.offset ?? 0));
+    query.set("fields", "*countries,*payment_providers");
+
     return await this.request<{ regions: any[]; count: number }>(
-      "/admin/regions",
+      `/admin/regions?${query.toString()}`,
+      { method: "GET" },
+      token
+    );
+  }
+
+  /**
+   * Retrieve single region by ID
+   */
+  async getRegion(token: string, id: string): Promise<any> {
+    const res = await this.request<{ region: any }>(
+      `/admin/regions/${id}?fields=*countries,*payment_providers`,
+      { method: "GET" },
+      token
+    );
+    return res.region;
+  }
+
+  /**
+   * Update region settings
+   */
+  async updateRegion(token: string, id: string, data: any): Promise<any> {
+    const res = await this.request<{ region: any }>(
+      `/admin/regions/${id}`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      token
+    );
+    return res.region;
+  }
+
+  /**
+   * Retrieve shipping options with service zones
+   */
+  async getShippingOptions(
+    token: string,
+    params: { limit?: number; offset?: number } = {}
+  ): Promise<{ shipping_options: any[]; count: number }> {
+    const query = new URLSearchParams();
+    query.set("limit", String(params.limit ?? 50));
+    query.set("offset", String(params.offset ?? 0));
+    query.set("fields", "*service_zone");
+
+    return await this.request<{ shipping_options: any[]; count: number }>(
+      `/admin/shipping-options?${query.toString()}`,
+      { method: "GET" },
+      token
+    );
+  }
+
+  /**
+   * Retrieve tax rates
+   */
+  async getTaxRates(
+    token: string,
+    params: { limit?: number; offset?: number } = {}
+  ): Promise<{ tax_rates: any[]; count: number }> {
+    const query = new URLSearchParams();
+    query.set("limit", String(params.limit ?? 50));
+    query.set("offset", String(params.offset ?? 0));
+
+    return await this.request<{ tax_rates: any[]; count: number }>(
+      `/admin/tax-rates?${query.toString()}`,
       { method: "GET" },
       token
     );

@@ -5,14 +5,43 @@ export const SESSION_COOKIE_NAME = "teb_admin_session";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Static assets, api routes, and internal next requests pass through
-  // API routes handle their own 401 JSON responses
+  // Static assets, and internal next requests pass through
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.includes(".")
   ) {
+    return NextResponse.next();
+  }
+
+  // API Routes: Enforce CSRF Origin verification on mutations (POST, PUT, DELETE, PATCH)
+  if (
+    pathname.startsWith("/api/") &&
+    !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+    pathname !== "/api/auth/login"
+  ) {
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("host");
+    if (origin && host) {
+      try {
+        const originHost = new URL(origin).host;
+        if (originHost !== host) {
+          return NextResponse.json(
+            { error: "CSRF check failed: Cross-origin mutation forbidden" },
+            { status: 403 }
+          );
+        }
+      } catch {
+        return NextResponse.json(
+          { error: "CSRF check failed: Malformed Origin header" },
+          { status: 403 }
+        );
+      }
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 

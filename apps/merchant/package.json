@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "verify:03a": "node src/scripts/verify-milestone-03a.js",
     "verify:03b": "node src/scripts/verify-milestone-03b.js",
-    "verify:03c": "node src/scripts/verify-milestone-03c.js"
+    "verify:03c": "node src/scripts/verify-milestone-03c.js",
+    "verify:03d": "node src/scripts/verify-milestone-03d.js"
   },
   "dependencies": {
     "@the-ecom-buddy/types": "*",

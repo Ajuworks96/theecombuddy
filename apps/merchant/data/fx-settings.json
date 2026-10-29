@@ -1,0 +1,32 @@
+{
+  "provider": "open_er_api",
+  "apiKey": "",
+  "baseCurrency": "INR",
+  "refreshPolicy": "daily",
+  "markupPercent": 2.5,
+  "roundingRules": {
+    "USD": "point_99",
+    "EUR": "point_95",
+    "GBP": "point_99",
+    "AED": "integer",
+    "INR": "integer"
+  },
+  "manualRates": {
+    "INR": 1,
+    "USD": 0.0105,
+    "AED": 0.0385,
+    "EUR": 0.0094,
+    "GBP": 0.0079
+  },
+  "rates": {
+    "INR": 1,
+    "USD": 0.010494,
+    "AED": 0.03854,
+    "EUR": 0.009432,
+    "GBP": 0.007899
+  },
+  "lastFetchedAt": "2026-10-29T13:05:26.382Z",
+  "lastVerifiedAt": "2026-10-29T13:05:26.382Z",
+  "isAutomaticAvailable": true,
+  "outageStatus": "healthy"
+}

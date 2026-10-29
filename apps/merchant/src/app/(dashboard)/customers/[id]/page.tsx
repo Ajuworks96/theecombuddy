@@ -138,11 +138,24 @@ export default function CustomerDetailPage({
   const orders = customer.orders || [];
   const addresses = customer.addresses || [];
 
-  // Metrics
+  // Financial metrics strictly segregated by currency (Never add different currencies directly)
   const totalOrders = orders.length;
-  const lifetimeSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const avgOrderValue = totalOrders > 0 ? lifetimeSpent / totalOrders : 0;
-  const preferredCurrency = orders[0]?.currency_code?.toUpperCase() || "INR";
+  const spendByCurrency: Record<string, { total: number; count: number }> = {};
+  orders.forEach((o) => {
+    const curr = (
+      o.currency_code ||
+      o.payment_collections?.[0]?.payments?.[0]?.currency_code ||
+      (o.shipping_address?.country_code?.toLowerCase() === "in" ? "inr" : "usd")
+    ).toUpperCase();
+
+    if (!spendByCurrency[curr]) {
+      spendByCurrency[curr] = { total: 0, count: 0 };
+    }
+    spendByCurrency[curr].total += o.total || 0;
+    spendByCurrency[curr].count += 1;
+  });
+
+  const currencyKeys = Object.keys(spendByCurrency);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20">
@@ -205,24 +218,42 @@ export default function CustomerDetailPage({
         </div>
       </div>
 
-      {/* Metrics Row */}
+      {/* Metrics Row (Strictly Segregated by Currency) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-xs text-slate-500 font-medium">Total Orders</span>
+          <span className="text-xs text-slate-500 font-medium">Total Orders Placed</span>
           <div className="text-xl font-bold text-slate-900 mt-1">{totalOrders}</div>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-xs text-slate-500 font-medium">Lifetime Spend</span>
-          <div className="text-xl font-bold text-emerald-700 mt-1">
-            {formatCurrency(lifetimeSpent, preferredCurrency)}
+          <span className="text-xs text-slate-500 font-medium">Lifetime Spend (By Currency)</span>
+          <div className="mt-1 space-y-0.5">
+            {currencyKeys.length === 0 ? (
+              <span className="text-sm font-bold text-slate-400">—</span>
+            ) : (
+              currencyKeys.map((curr) => (
+                <div key={curr} className="flex items-center justify-between text-xs font-bold text-emerald-700">
+                  <span>{formatCurrency(spendByCurrency[curr].total, curr)}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">({spendByCurrency[curr].count} ord)</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-xs text-slate-500 font-medium">Average Order Value</span>
-          <div className="text-xl font-bold text-slate-900 mt-1">
-            {formatCurrency(avgOrderValue, preferredCurrency)}
+          <span className="text-xs text-slate-500 font-medium">Average Order Value (AOV)</span>
+          <div className="mt-1 space-y-0.5">
+            {currencyKeys.length === 0 ? (
+              <span className="text-sm font-bold text-slate-400">—</span>
+            ) : (
+              currencyKeys.map((curr) => (
+                <div key={curr} className="flex items-center justify-between text-xs font-bold text-slate-900">
+                  <span>{formatCurrency(spendByCurrency[curr].total / spendByCurrency[curr].count, curr)}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">{curr}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -265,7 +296,11 @@ export default function CustomerDetailPage({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {orders.map((o) => {
-                      const curr = (o.currency_code || preferredCurrency).toUpperCase();
+                      const curr = (
+                        o.currency_code ||
+                        o.payment_collections?.[0]?.payments?.[0]?.currency_code ||
+                        "INR"
+                      ).toUpperCase();
                       return (
                         <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-2.5 px-4 font-bold text-slate-900 font-mono">
@@ -511,3 +546,4 @@ export default function CustomerDetailPage({
     </div>
   );
 }
+

@@ -103,3 +103,4 @@ The automated verification suite (`apps/merchant/src/scripts/verify-milestone-03
 3. **Zero-Mock Policy**: No simulated tables or bypass mechanisms used.
 4. **Payment Safety**: Zero-Mock Razorpay policy enforced; no live transactions processed.
 5. **Milestone Boundary**: Development stopped strictly at Milestone 03C completion without premature storefront redesign or Cashfree integration.
+

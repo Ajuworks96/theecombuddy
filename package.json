@@ -23,10 +23,13 @@
     "verify:02d-a": "npm run verify:02d-a --workspace=@the-ecom-buddy/backend",
     "setup:02d-b": "npm run setup:02d-b --workspace=@the-ecom-buddy/backend",
     "verify:02d-b": "npm run verify:02d-b --workspace=@the-ecom-buddy/backend",
+    "verify:03a": "npm run verify:03a --workspace=@the-ecom-buddy/merchant",
     "dev:backend": "npm run dev --workspace=@the-ecom-buddy/backend",
     "dev:storefront": "npm run dev --workspace=@the-ecom-buddy/storefront",
+    "dev:merchant": "npm run dev --workspace=@the-ecom-buddy/merchant",
     "build:backend": "npm run build --workspace=@the-ecom-buddy/backend",
     "build:storefront": "npm run build --workspace=@the-ecom-buddy/storefront",
+    "build:merchant": "npm run build --workspace=@the-ecom-buddy/merchant",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces"
   },

@@ -246,6 +246,10 @@ export class RazorpayClient {
     );
   }
 
+  public hasTransport(): boolean {
+    return Boolean(this.transport);
+  }
+
   public getMode(): "test" | "live" {
     return this.mode;
   }
@@ -486,10 +490,127 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
     }
   }
 
+  /**
+   * Safe Lua-based mutex lock release ensuring strict ownership:
+   * Only the worker that acquired the lock with lockToken can release it.
+   */
+  public async releaseLock(
+    lockKey: string,
+    lockToken: string
+  ): Promise<boolean> {
+    const redis = await this.getRedisClient();
+    if (!redis) return false;
+
+    // Atomic Lua check-and-delete:
+    // Only delete if the key value matches ARGV[1] (ownership token)
+    const script = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+
+    try {
+      const result = await redis.eval(script, 1, lockKey, lockToken);
+      return result === 1;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check whether an event has been marked as completed downstream
+   */
+  public async isEventCompleted(eventKey: string): Promise<boolean> {
+    const redis = await this.getRedisClient();
+    if (!redis) return false;
+    const completedKey = `teb:webhook:completed:razorpay:${eventKey}`;
+    const status = await redis.get(completedKey);
+    return status === "completed";
+  }
+
+  /**
+   * Retrieve the current in-flight lock owner token for an event key
+   */
+  public async getLockToken(eventKey: string): Promise<string | null> {
+    const redis = await this.getRedisClient();
+    if (!redis) return null;
+    const lockKey = `teb:webhook:lock:razorpay:${eventKey}`;
+    return (await redis.get(lockKey)) || null;
+  }
+
+  /**
+   * Durable completion marker:
+   * Called ONLY AFTER downstream Medusa workflow (order placement / payment capture)
+   * has successfully finished. Transitions state to 'completed' with 72-hour retention
+   * and safely releases in-flight worker locks.
+   */
+  public async markWebhookCompleted(
+    sessionIdOrEventKey: string,
+    lockToken?: string
+  ): Promise<void> {
+    const redis = await this.getRedisClient();
+    if (!redis) return;
+
+    if (sessionIdOrEventKey.includes(":")) {
+      // Event-level key (e.g. "evt_123:payment.captured")
+      const eventKey = sessionIdOrEventKey;
+      const lockKey = `teb:webhook:lock:razorpay:${eventKey}`;
+      const completedKey = `teb:webhook:completed:razorpay:${eventKey}`;
+
+      await redis.set(completedKey, "completed", "EX", 259200); // 72 hours
+      if (lockToken) {
+        await this.releaseLock(lockKey, lockToken);
+      } else {
+        await redis.del(lockKey);
+      }
+      return;
+    }
+
+    // Session-level key (e.g. "payses_123"): finalize all pending session locks
+    const sessionId = sessionIdOrEventKey;
+    try {
+      const sessionKeys: string[] = await redis.keys(
+        `teb:webhook:session_lock:${sessionId}:*`
+      );
+      for (const key of sessionKeys) {
+        const raw = await redis.get(key);
+        if (raw) {
+          try {
+            const data = JSON.parse(raw);
+            if (data.completedKey) {
+              await redis.set(data.completedKey, "completed", "EX", 259200);
+            }
+            if (data.lockKey && data.lockToken) {
+              await this.releaseLock(data.lockKey, data.lockToken);
+            } else if (data.lockKey) {
+              await redis.del(data.lockKey);
+            }
+            await redis.del(key);
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+    } catch {
+      // Ignore Redis scan errors
+    }
+  }
+
   async initiatePayment(
     input: InitiatePaymentInput
   ): Promise<InitiatePaymentOutput> {
     const { currency_code, amount, data, context } = input;
+
+    // Phase 6: Never expose Razorpay checkout if active credentials are missing or placeholder
+    if (!this.client.hasCredentials() && !this.client.hasTransport()) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_ALLOWED,
+        "Razorpay payment provider is not configured with active gateway credentials for this store installation. " +
+          "Please configure valid merchant credentials or select an alternative payment method."
+      );
+    }
 
     validateCurrencySupport(
       currency_code,
@@ -789,16 +910,27 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
       return { action: PaymentActions.NOT_SUPPORTED };
     }
 
+    // Event and Session extraction
+    const event = (payloadData.event as string) || "";
+    const paymentEntity = payloadData.payload?.payment?.entity;
+    const orderEntity = payloadData.payload?.order?.entity;
+
+    const sessionId =
+      paymentEntity?.notes?.session_id ||
+      orderEntity?.notes?.session_id ||
+      "";
+
+    // Foreign webhooks or events with zero session correlation are unsupported
+    if (!sessionId) {
+      return { action: PaymentActions.NOT_SUPPORTED };
+    }
+
     // Event ID extraction for atomic idempotency
     const eventId =
       (headers?.["x-razorpay-event-id"] as string) ||
       (payloadData.id as string) ||
       (payloadData.event_id as string) ||
       "";
-
-    if (!eventId) {
-      return { action: PaymentActions.NOT_SUPPORTED };
-    }
 
     // Durable Redis Deduplication & Mutex Locking
     const redis = await this.getRedisClient();
@@ -809,41 +941,54 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
       );
     }
 
-    const lockKey = `teb:webhook:razorpay:${eventId}`;
+    // Distinct Event Scoping: differentiates authorized vs captured vs paid events
+    const eventKey = eventId
+      ? `${eventId}:${event || "event"}`
+      : `${sessionId}:${event || "event"}`;
 
-    // Step 1: Atomic NX acquisition with 120s processing TTL
-    const acquired = await redis.set(lockKey, "processing", "EX", 120, "NX");
-    if (!acquired) {
-      const currentState = await redis.get(lockKey);
-      if (currentState === "completed") {
-        // Event already processed durably -> safe duplicate return
-        return { action: PaymentActions.NOT_SUPPORTED };
-      }
-      if (currentState === "processing") {
-        // Concurrency in flight -> signal retriable conflict
-        throw new MedusaError(
-          MedusaError.Types.CONFLICT,
-          `Webhook event '${eventId}' is currently being processed by another worker. Retrying shortly.`
-        );
-      }
+    const lockKey = `teb:webhook:lock:razorpay:${eventKey}`;
+    const completedKey = `teb:webhook:completed:razorpay:${eventKey}`;
+
+    // Step 1: Check whether downstream processing has ALREADY succeeded
+    const isCompleted = await redis.get(completedKey);
+    if (isCompleted === "completed") {
+      // Event already processed and finalized downstream -> safe duplicate rejection
+      return { action: PaymentActions.NOT_SUPPORTED };
     }
 
-    // Step 2: Process the event safely with error rollback
-    try {
-      const event = payloadData.event as string;
-      const paymentEntity = payloadData.payload?.payment?.entity;
-      const orderEntity = payloadData.payload?.order?.entity;
-
-      const sessionId =
-        paymentEntity?.notes?.session_id ||
-        orderEntity?.notes?.session_id ||
-        "";
-
-      if (!sessionId) {
-        // Unrecognized store event -> release lock so it doesn't block future keys
-        await redis.del(lockKey);
+    // Step 2: Atomic lock acquisition using a unique worker ownership token (UUID)
+    const lockToken = crypto.randomUUID();
+    const acquired = await redis.set(lockKey, lockToken, "EX", 120, "NX");
+    if (!acquired) {
+      // Check again if it completed while acquiring
+      const lateCompleted = await redis.get(completedKey);
+      if (lateCompleted === "completed") {
         return { action: PaymentActions.NOT_SUPPORTED };
       }
+      // Mutex contention: another worker currently has the in-flight lock
+      throw new MedusaError(
+        MedusaError.Types.CONFLICT,
+        `Webhook event '${eventKey}' is currently being processed by another worker. Retrying shortly.`
+      );
+    }
+
+    // Step 3: Process the event safely with error rollback
+    try {
+      // Register in-flight session lock association so downstream subscriber can finalize it
+      const sessionLockKey = `teb:webhook:session_lock:${sessionId}:${event || "event"}`;
+      await redis.set(
+        sessionLockKey,
+        JSON.stringify({
+          eventKey,
+          lockKey,
+          completedKey,
+          lockToken,
+          sessionId,
+          event,
+        }),
+        "EX",
+        180 // 3 minutes TTL
+      );
 
       const rawAmount = paymentEntity?.amount || orderEntity?.amount || 0;
       const currency = (paymentEntity?.currency || orderEntity?.currency || "inr").toLowerCase();
@@ -881,19 +1026,29 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
               amount,
             },
           };
+          // For terminal failed events, mark completed so they are not retried
+          await redis.set(completedKey, "completed", "EX", 259200);
+          await this.releaseLock(lockKey, lockToken);
+          await redis.del(sessionLockKey);
           break;
 
         default:
           result = { action: PaymentActions.NOT_SUPPORTED };
+          // Release lock for unsupported events
+          await this.releaseLock(lockKey, lockToken);
+          await redis.del(sessionLockKey);
           break;
       }
 
-      // Step 3: Transition lock to "completed" with 72-hour retention
-      await redis.set(lockKey, "completed", "EX", 259200);
+      // NOTE: We DO NOT mark completedKey = "completed" here for authorized/captured events!
+      // Marking completed prematurely before downstream processPaymentWorkflow finishes
+      // breaks gateway retry recovery if downstream fails.
+      // Downstream completion is finalized via markWebhookCompleted / subscriber.
       return result;
     } catch (err) {
-      // Step 4: If processing fails, release lock so Razorpay gateway retry succeeds
-      await redis.del(lockKey);
+      // If parsing/processing throws an error inside getWebhookActionAndData,
+      // release lock immediately using owner token so retry can succeed.
+      await this.releaseLock(lockKey, lockToken);
       throw err;
     }
   }

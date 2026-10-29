@@ -1,8 +1,8 @@
 # Milestone 02D-B.1 Verification & Razorpay Payment Hardening Report
 
 **Project**: The Ecom Buddy  
-**Milestone**: 02D-B.1 — Razorpay Sandbox Verification & Payment Hardening  
-**Status**: APPROVED & VERIFIED (41 of 41 Automated Tests Passed: 31 Unit Tests + 10 Local Integration Tests; 2 Live Tests Guarded/Blocked per Phase 4 Zero-Mock Policy)  
+**Milestone**: 02D-B.1 — Razorpay Sandbox Verification, Webhook Lifecycle Audit & Payment Hardening  
+**Status**: APPROVED & VERIFIED (45 of 45 Automated Tests Passed: 35 Unit Tests + 10 Local Integration Tests; 2 Live Tests Guarded/Blocked per Phase 4 Zero-Mock Policy)  
 **Date**: October 29, 2026  
 **Execution Environment**: Node.js v22.23.4, Medusa v2.22.1, PostgreSQL 18.4 (UTF-8), Redis 7 (memory server)  
 
@@ -10,59 +10,94 @@
 
 ## 1. Executive Summary & Audit Findings
 
-Milestone 02D-B.1 executes an exhaustive source code audit and production hardening of the **Razorpay Payment Module Provider** (`pp_razorpay_razorpay`) and regional payment safety rules. Operating under an independently self-hosted white-label architecture, this hardening phase resolves critical payment availability risks and elevates webhook deduplication to bank-grade reliability.
+Milestone 02D-B.1 executes an exhaustive source code audit, lifecycle verification, and production hardening of the **Razorpay Payment Module Provider** (`pp_razorpay_razorpay`), webhook idempotency engine, and regional payment safety rules. Operating under an independently self-hosted white-label architecture, this hardening phase resolves critical payment availability risks, eliminates webhook lifecycle flaws, and elevates webhook deduplication to bank-grade reliability.
 
 ### Key Audit Findings & Vulnerabilities Identified:
-1. **Unintended COD Exposure in International Regions**: The pre-hardening configuration retained `pp_system_default` on international regions (US, UAE, UK, EU). Offering Cash on Delivery for foreign export shipments posed severe financial and courier liability risks.
-2. **In-Flight & Process-Local Webhook Deduplication Vulnerabilities**: The previous webhook deduplication fell back to an in-memory `Set`, which resets on server restart, does not synchronize across clustered server instances, and marked events as processed *before* workflow handling completed.
-3. **Refund Safety Boundary**: Refund logic previously lacked a strict balance check against the remaining captured amount, presenting risk of over-refunding.
+
+1. **Webhook Lifecycle Flaw (Premature Completion Bug)**:
+   * **Root Cause Confirmation**: Audit of `paymentWebhookhandler` (`@medusajs/medusa/dist/subscribers/payment-webhook.js`), `processPaymentWorkflow` (`@medusajs/core-flows`), and our provider service confirmed that `getWebhookActionAndData()` was previously executing `SET lockKey "completed" EX 259200` *before* returning `{ action, data }`.
+   * **Failure Mode**: Medusa invokes `paymentService.getWebhookActionAndData()` merely as an event parser. Downstream `wfEngine.run(processPaymentWorkflowId)` runs *afterwards*. If downstream failed (e.g., cart lock contention, inventory race, process crash), Redis had already marked the event as `"completed"`. When Razorpay retried the webhook, `getWebhookActionAndData()` inspected the key, saw `"completed"`, and returned `PaymentActions.NOT_SUPPORTED`. The retried delivery was dropped, leaving the customer charged on the gateway but without an order created in Medusa!
+2. **Missing Lock Ownership Tokens & Unsafe Deletion**:
+   * Previously, in-flight locks used generic `"processing"` strings without ownership tokens. If a slow worker exceeded the lock TTL and a second worker acquired the lock, the first worker's `DEL` command would delete the second worker's active lock, causing race conditions.
+3. **Coarse Event Scoping**:
+   * Locking on generic event identifiers without event typing meant that `payment.authorized` could interfere with or lock out a subsequent `payment.captured` event for the same transaction.
+4. **Unintended COD Exposure in International Regions**:
+   * Pre-hardening configuration retained `pp_system_default` on international regions (US, UAE, UK, EU). Offering Cash on Delivery for foreign export shipments posed severe financial and courier liability risks.
+5. **Gateway Availability Safety**:
+   * Initiating payment when credentials were unconfigured placeholders (`rzp_test_placeholder`) needed strict rejection with `MedusaError.Types.NOT_ALLOWED` to prevent shoppers from entering a broken checkout session.
 
 ---
 
 ## 2. Implemented Hardening & Architectural Fixes
 
-### 2.1 Strict Regional Cash-on-Delivery (COD) Isolation
-* Executed [`setup-milestone-02d-b.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/scripts/setup-milestone-02d-b.ts) using Medusa's Remote Link service (`link.dismiss`) to permanently dismiss `pp_system_default` from all four international markets (`reg_01M6351W7B431VGASFQD9TN1VX` [US], `reg_01M6351W7B0HRW2SYNDCNHHPJ6` [UAE], `reg_01M6351W7BARPAY3B4BHP4RFVV` [UK], `reg_01M6351W7BVQ2KAXF81ZV6P288` [EU]).
-* Verified via Store API (`GET /store/payment-providers?region_id=...`):
-  * **India (`inr`)**: Both `pp_razorpay_razorpay` (Online Payment) and `pp_system_default` (COD) available.
-  * **United States (`usd`)**: `pp_razorpay_razorpay` ONLY. COD strictly excluded (`count: 1`).
-  * **UAE, UK, EU**: `pp_razorpay_razorpay` ONLY. COD strictly excluded.
+### 2.1 Resolved Webhook Lifecycle & Downstream Reconciliation Architecture
+* **Decoupled Event Parsing from Completion**:
+  1. `getWebhookActionAndData()` no longer marks events as `"completed"`. It acquires an in-flight mutex with a cryptographically unique worker token (UUID) and creates an in-flight session association (`teb:webhook:session_lock:${sessionId}:${event}`).
+  2. The event stays in `"processing"` state while downstream `processPaymentWorkflow` executes.
+  3. If downstream processing fails (or crashes), the lock key expires or is released, allowing subsequent gateway retries to reconcile cleanly and complete the order.
+* **Downstream Finalizer Subscriber (`razorpay-webhook-finalizer.ts`)**:
+  * Implemented [`apps/backend/src/subscribers/razorpay-webhook-finalizer.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/subscribers/razorpay-webhook-finalizer.ts) listening to:
+    * `OrderWorkflowEvents.PLACED` (`order.placed`) emitted when `completeCartWorkflow` finishes order placement.
+    * `PaymentEvents.CAPTURED` (`payment.captured`) emitted when `capturePaymentWorkflow` finishes capturing payment.
+  * When triggered, it queries the payment collection sessions for `pp_razorpay_razorpay` and executes `markWebhookCompleted(sessionId)`:
+    * Durably marks `completedKey` = `"completed"` with 72-hour retention (`EX 259200`).
+    * Safely releases in-flight worker locks via atomic Lua script.
+    * Cleans up temporary session lock associations.
 
-### 2.2 Atomic Redis-Backed Webhook Deduplication & Concurrency Mutex
-* Replaced in-memory tracking with an atomic Redis state machine:
-  1. **Acquire In-Flight Mutex**: `SET teb:webhook:razorpay:<eventId> "processing" EX 120 NX`.
-  2. **Concurrency Detection**: If the key is already `"processing"`, the provider immediately throws `MedusaError.Types.CONFLICT`, signaling a retriable HTTP conflict so the gateway retries after backoff.
-  3. **Duplicate Detection**: If the key is `"completed"`, the provider immediately returns `{ action: PaymentActions.NOT_SUPPORTED }`, suppressing duplicate orders.
-  4. **Post-Processing Completion**: State transitions to `"completed"` with a 72-hour TTL (`EX 259200`) *only after* successful payload parsing and session mapping.
-  5. **Failure Rollback**: If processing throws an exception, the in-flight lock is immediately removed (`DEL lockKey`) so gateway retries can succeed.
-  6. **Zero Silent Fallback**: If Redis is unreachable, the provider throws `MedusaError.Types.UNEXPECTED_STATE` to fail safely and preserve retriable state, strictly avoiding silent in-memory fallback.
+### 2.2 Strict Lock Ownership via Atomic Lua Check-and-Delete
+* Implemented `releaseLock(lockKey, lockToken)` in [`apps/backend/src/modules/payment-razorpay/index.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/modules/payment-razorpay/index.ts):
+  ```lua
+  if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("del", KEYS[1])
+  else
+    return 0
+  end
+  ```
+* Guaranteed that only the worker holding the exact token (`ARGV[1]`) can release the lock. Stale or slow workers cannot delete active locks held by newly spawned workers.
 
-### 2.3 Refund Boundary Enforcement
-* Enforced that refund amounts must be greater than zero.
-* Added validation checking that `refundSmallest <= (capturedAmount - alreadyRefunded)`. Excess refund requests throw `MedusaError.Types.NOT_ALLOWED`.
+### 2.3 Distinct Event Scoping
+* Idempotency keys distinguish both event ID and event action:
+  `eventKey = `${eventId}:${event}`` (or `${sessionId}:${event}`).
+* Prevents `payment.authorized` and `payment.captured` for the same payment session from colliding or locking each other out.
+
+### 2.4 Gateway Availability Safety
+* Added active credentials guard in `initiatePayment`:
+  If `!this.client.hasCredentials() && !this.client.hasTransport()`, immediately throws `MedusaError(MedusaError.Types.NOT_ALLOWED, "Razorpay payment provider is not configured with active gateway credentials...")`.
+* Prevents unconfigured environments from exposing broken payment flows to shoppers.
+
+### 2.5 Strict Regional Cash-on-Delivery (COD) Isolation
+* Used Medusa's Remote Link service (`link.dismiss`) in [`setup-milestone-02d-b.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/scripts/setup-milestone-02d-b.ts) to permanently dismiss `pp_system_default` from all four international markets.
+* Store API (`GET /store/payment-providers?region_id=...`) confirms:
+  * **India (`inr`)**: Both `pp_razorpay_razorpay` and `pp_system_default` (COD).
+  * **US, UAE, UK, EU**: `pp_razorpay_razorpay` ONLY. COD strictly excluded (`count: 1`).
 
 ---
 
-## 3. Webhook Deduplication & Concurrency Flow
+## 3. Webhook Deduplication, Lifecycle & Reconciliation Flow
 
 ```mermaid
 flowchart TD
     Hook[POST /hooks/payment/razorpay_razorpay] --> SigCheck{HMAC-SHA256 Valid?}
-    SigCheck -->|No| RejectSig[Return NOT_SUPPORTED / Reject]
-    SigCheck -->|Yes| RedisCheck{Redis Connected?}
+    SigCheck -->|No| RejectSig[Return NOT_SUPPORTED]
+    SigCheck -->|Yes| SessionCheck{Session ID Present?}
+    SessionCheck -->|No| Foreign[Foreign Event: Return NOT_SUPPORTED]
+    SessionCheck -->|Yes| CompCheck{Already Completed in Redis?}
     
-    RedisCheck -->|No| FailSafe[Throw UNEXPECTED_STATE\nPreserve Retriable State]
-    RedisCheck -->|Yes| Mutex[SET lockKey 'processing' EX 120 NX]
+    CompCheck -->|Yes| DupDrop[Deduplicated: Return NOT_SUPPORTED]
+    CompCheck -->|No| Mutex[SET lockKey workerToken EX 120 NX]
     
-    Mutex -->|Acquired OK| ParsePayload[Parse Session & Order Entity]
-    Mutex -->|Not Acquired| StateCheck{GET lockKey Status}
+    Mutex -->|Not Acquired| Conflict[Throw CONFLICT: Concurrency In Flight]
+    Mutex -->|Acquired OK| RegSession[SET session_lock:sessionId:event metadata EX 180]
     
-    StateCheck -->|completed| DupIgnored[Duplicate Delivery: Return NOT_SUPPORTED]
-    StateCheck -->|processing| Concurrent[Throw CONFLICT: Concurrency In Flight]
+    RegSession --> ReturnAction[Return Action to Medusa paymentWebhookhandler]
+    ReturnAction --> RunWorkflow[WorkflowEngine: run processPaymentWorkflow]
     
-    ParsePayload --> ProcessAction[Map Event: SUCCESSFUL / AUTHORIZED / FAILED]
-    ProcessAction --> CommitRedis[SET lockKey 'completed' EX 259200]
-    ProcessAction -->|Exception| RollbackLock[DEL lockKey: Allow Retry]
+    RunWorkflow -->|Downstream Throws / Crashes| FailRecovery[Lock Expires or Releases\nGateway Retry Reconciles Cleanly]
+    RunWorkflow -->|Downstream Succeeds| EventEmitted[Emit order.placed / payment.captured]
+    
+    EventEmitted --> FinalizerSub[Subscriber: razorpayWebhookFinalizer]
+    FinalizerSub --> MarkDone[SET completedKey 'completed' EX 259200]
+    MarkDone --> LuaRelease[Lua Safe Release lockKey workerToken]
 ```
 
 ---
@@ -70,7 +105,7 @@ flowchart TD
 ## 4. Automated Verification Results (`verify-milestone-02d-b.ts`)
 
 Execution Command: `npm run verify:02d-b`  
-Results: **41 of 41 Automated Tests Passed (100% Success)**, 2 Live Network Tests Guarded/Blocked per Phase 4 Specification
+Results: **45 of 45 Automated Tests Passed (100% Success)**, 2 Live Network Tests Guarded/Blocked per Phase 4 Specification
 
 ```
 ==============================================================================
@@ -105,39 +140,43 @@ Results: **41 of 41 Automated Tests Passed (100% Success)**, 2 Live Network Test
 
 --- SUITE 4: Durable Redis Deduplication & Concurrency ---
   [UNIT TEST PASSED] Test 21: payment.captured mapped to PaymentActions.SUCCESSFUL (Action: captured, Amount: ₹1885.64)
-  [UNIT TEST PASSED] Test 22: Event state transitioned durably to 'completed' in Redis (Lock key: completed)
-  [UNIT TEST PASSED] Test 23: Duplicate/Replay webhook rejected via durable completed state (Replay Action: not_supported)
-  [UNIT TEST PASSED] Test 24: In-flight concurrent webhook delivery throws retriable MedusaError.CONFLICT (Retriable conflict signaled to caller)
-  [UNIT TEST PASSED] Test 25: Redis outage fails safely to preserve retriable state (No silent memory fallback) (Preserves gateway retriable state)
-  [UNIT TEST PASSED] Test 26: payment.authorized mapped to PaymentActions.AUTHORIZED (USD) (Action: authorized, Amount: $35)
-  [UNIT TEST PASSED] Test 27: payment.failed mapped to PaymentActions.FAILED (Action: failed)
-  [UNIT TEST PASSED] Test 28: Unauthenticated webhook missing signature returns NOT_SUPPORTED (Action: not_supported)
-  [UNIT TEST PASSED] Test 29: Foreign webhook without session_id ignored (Zero cross-tenant bleed) (Action: not_supported)
+  [UNIT TEST PASSED] Test 22: Mutex lock acquired with ownership token (Event NOT prematurely marked completed) (Token: 84c5ae9f..., completed: null)
+  [UNIT TEST PASSED] Test 23: Strict lock ownership enforced via Lua (Unauthorized worker cannot release lock) (Release denied: true, Lock retained: true)
+  [UNIT TEST PASSED] Test 24: Downstream failure recovery: Gateway retry reconciles safely without duplicate drop (Retry Action: captured, Session: payses_01M6TESTSESSION01)
+  [UNIT TEST PASSED] Test 25: Downstream finalization marks completed durably and releases in-flight lock (State: completed, In-flight lock: null)
+  [UNIT TEST PASSED] Test 26: Duplicate/Replay webhook rejected via durable completed state (Replay Action: not_supported)
+  [UNIT TEST PASSED] Test 27: Distinct event scoping: payment.authorized and captured handle independently (Action: authorized, Amount: $35)
+  [UNIT TEST PASSED] Test 28: In-flight concurrent webhook delivery throws retriable MedusaError.CONFLICT (Retriable conflict signaled to caller)
+  [UNIT TEST PASSED] Test 29: Redis outage fails safely to preserve retriable state (No silent memory fallback) (Preserves gateway retriable state)
+  [UNIT TEST PASSED] Test 30: payment.failed mapped to PaymentActions.FAILED and locked out from replay (Action: failed)
+  [UNIT TEST PASSED] Test 31: Unauthenticated webhook missing signature returns NOT_SUPPORTED (Action: not_supported)
+  [UNIT TEST PASSED] Test 32: Foreign webhook without session_id ignored (Zero cross-tenant bleed) (Action: not_supported)
 
 --- SUITE 5: Provider Lifecycle & Transport Workflows (Unit Tests) ---
-  [UNIT TEST PASSED] Test 30: initiatePayment creates server-generated Razorpay order (Order: order_mock_01M6RZP001, Amount: 188564 paise)
-  [UNIT TEST PASSED] Test 31: authorizePayment validates cryptographic checkout signature (Status: authorized)
-  [UNIT TEST PASSED] Test 32: authorizePayment rejects invalid signature with ERROR status (Status: error)
-  [UNIT TEST PASSED] Test 33: capturePayment executes gateway capture call (Status: captured)
-  [UNIT TEST PASSED] Test 34: refundPayment calculates smallest unit refund amount (50000 paise) (Refund ID: rfnd_mock_01M6001, Amount: 50000 paise)
-  [UNIT TEST PASSED] Test 35: refundPayment rejects refund exceeding captured balance (Excess refund rejected)
-  [UNIT TEST PASSED] Test 36: cancelPayment updates payment state to canceled (Status: canceled)
-  [UNIT TEST PASSED] Test 37: getPaymentStatus accurately maps all Razorpay status primitives (created->PENDING, auth->AUTHORIZED, captured->CAPTURED, failed->ERROR)
+  [UNIT TEST PASSED] Test 33: initiatePayment creates server-generated Razorpay order (Order: order_mock_01M6RZP001, Amount: 188564 paise)
+  [UNIT TEST PASSED] Test 34: initiatePayment blocks checkout when gateway credentials are unconfigured (Phase 6 Safety) (Payment initiation safely rejected with NOT_ALLOWED)
+  [UNIT TEST PASSED] Test 35: authorizePayment validates cryptographic checkout signature (Status: authorized)
+  [UNIT TEST PASSED] Test 36: authorizePayment rejects invalid signature with ERROR status (Status: error)
+  [UNIT TEST PASSED] Test 37: capturePayment executes gateway capture call (Status: captured)
+  [UNIT TEST PASSED] Test 38: refundPayment calculates smallest unit refund amount (50000 paise) (Refund ID: rfnd_mock_01M6001, Amount: 50000 paise)
+  [UNIT TEST PASSED] Test 39: refundPayment rejects refund exceeding captured balance (Excess refund rejected)
+  [UNIT TEST PASSED] Test 40: cancelPayment updates payment state to canceled (Status: canceled)
+  [UNIT TEST PASSED] Test 41: getPaymentStatus accurately maps all Razorpay status primitives (created->PENDING, auth->AUTHORIZED, captured->CAPTURED, failed->ERROR)
 
 --- SUITE 6: Storefront API Integration (Medusa Live Engine) ---
-  [LOCAL INTEGRATION PASSED] Test 38: GET /store/payment-providers returns both pp_razorpay_razorpay and pp_system_default for India (["pp_razorpay_razorpay","pp_system_default"])
-  [LOCAL INTEGRATION PASSED] Test 39: GET /store/payment-providers returns ONLY pp_razorpay_razorpay for US (COD strictly absent) (["pp_razorpay_razorpay"])
-  [LOCAL INTEGRATION PASSED] Test 40: Payment collection created successfully for Razorpay cart (Collection: pay_col_01M639Y8FH9AQSGCMJRYPRT3BZ)
-  [LOCAL INTEGRATION PASSED] Test 41: Cart readiness verified with shipping, line items, and monetary subtotals (Total: ₹2035.5)
+  [LOCAL INTEGRATION PASSED] Test 42: GET /store/payment-providers returns both pp_razorpay_razorpay and pp_system_default for India (["pp_razorpay_razorpay","pp_system_default"])
+  [LOCAL INTEGRATION PASSED] Test 43: GET /store/payment-providers returns ONLY pp_razorpay_razorpay for US (COD strictly absent) (["pp_razorpay_razorpay"])
+  [LOCAL INTEGRATION PASSED] Test 44: Payment collection created successfully for Razorpay cart (Collection: pay_col_01M63BENQS3192EBN8NX5W0M07)
+  [LOCAL INTEGRATION PASSED] Test 45: Cart readiness verified with shipping, line items, and monetary subtotals (Total: ₹2035.5)
 
 --- SUITE 7: Live Razorpay Gateway Sandbox Audit ---
-  [BLOCKED] Test 42: Razorpay Live Sandbox Network Handshake — Merchant test credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) not yet configured in local .env. Zero mock policy enforced: no simulated transactions fabricated.
-  [BLOCKED] Test 43: Live Razorpay Webhook Ingestion Delivery — Requires public tunnel (ngrok / live IP) and real webhook secret configured on Razorpay dashboard.
+  [BLOCKED] Test 46: Razorpay Live Sandbox Network Handshake — Merchant test credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) not yet configured in local .env. Zero mock policy enforced: no simulated transactions fabricated.
+  [BLOCKED] Test 47: Live Razorpay Webhook Ingestion Delivery — Requires public tunnel (ngrok / live IP) and real webhook secret configured on Razorpay dashboard.
 
 ==============================================================================
 [verify-02d-b] VERIFICATION SUMMARY
 ==============================================================================
-UNIT TEST PASSED:          31
+UNIT TEST PASSED:          35
 LOCAL INTEGRATION PASSED:  10
 RAZORPAY TEST MODE PASSED: 0
 BLOCKED (PER PHASE 4):     2
@@ -152,15 +191,15 @@ FAILED:                    0
 | Verification Target | Command | Result |
 | :--- | :--- | :--- |
 | **Monorepo TypeScript Check** | `npm run typecheck --workspaces` | Passed (0 errors across 5 workspaces) |
-| **Backend Medusa Build** | `npm run build:backend` | Backend: 4.85s, Admin Vite: 26.48s (Code 0) |
+| **Backend Medusa Build** | `npm run build:backend` | Backend: 9.30s, Admin Vite: 32.59s (Code 0) |
 | **Storefront Next.js Build** | `npm run build:storefront` | Next.js 15.5.28 compiled successfully (Code 0) |
-| **Milestone 02D-B.1 Suite** | `npm run verify:02d-b` | 41 passed, 0 failed, 2 blocked (Zero Mock) |
+| **Milestone 02D-B.1 Suite** | `npm run verify:02d-b` | 45 passed, 0 failed, 2 blocked (Zero Mock) |
 
 ---
 
-## 6. Live Sandbox Merchant Onboarding Instructions (Unblocking Test 42 & 43)
+## 6. Live Sandbox Merchant Onboarding Instructions (Unblocking Test 46 & 47)
 
-To transition Tests 42 & 43 from `[BLOCKED]` to `[RAZORPAY TEST MODE PASSED]`, the merchant performs two steps:
+To transition Tests 46 & 47 from `[BLOCKED]` to `[RAZORPAY TEST MODE PASSED]`, the merchant performs two steps:
 1. **Configure Private Test Keys in `apps/backend/.env`**:
    ```bash
    RAZORPAY_KEY_ID=rzp_test_YourActualKeyId

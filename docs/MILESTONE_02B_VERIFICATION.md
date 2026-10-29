@@ -6,112 +6,95 @@
 **Database**: PostgreSQL 18.4 (`medusa_ecom_buddy`, UTF-8)  
 **Cache & Events**: Redis 7 / Memurai (`redis-memory-server`)  
 **Status**: COMPLETE & VERIFIED (24/24 Functional Tests Passed)  
-**Date**: October 28, 2026  
+**Date**: October 29, 2026  
 
 ---
 
-## 1. Executive Summary
+## 1. Existing Work Recovered
 
-Milestone 02B establishes the complete commercial catalog foundation for The Ecom Buddy. All requirements have been implemented strictly against official Medusa v2 APIs and workflows, avoiding custom database overrides or duplicate commerce tables.
+Following system recovery and preflight inspection, all previously completed architectural foundations, databases, and configuration assets were preserved without data loss or recreation:
 
-### Key Achievements:
-- **Node.js & Medusa Preflight**: Runtime managed via `fnm` (`v22.23.4`), Medusa core upgraded from `2.18.0` to official stable `2.22.1`.
-- **Modern Caching Migration**: Replaced deprecated `Modules.CACHE` with `Modules.CACHING` using `@medusajs/medusa/caching-redis`.
-- **Workflow Redis Configuration**: Updated `workflow-engine-redis` options to clean `{ redis: { redisUrl } }` schema.
-- **Official Auth Credential Rotation**: Implemented `apps/backend/src/scripts/rotate-admin-password.ts` utilizing `authService.updateProvider("emailpass", ...)`.
-- **Catalog Capacity**: Seeded **520 distinct products** (exceeding the >= 500 requirement) across 8 categories and 4 collections.
-- **Variant & SKU Uniqueness**: Generated **1,235 product variants** with 100% SKU uniqueness enforced via pattern `TEB-[CAT]-[NUM]-[VAR]`.
-- **India-First Configuration**: Created India Region (`INR`, `in`), Mumbai `India Central Warehouse` stock location, and linked Sales Channel.
-- **Stock & Inventory Lifecycle**: Configured **1,236 inventory levels** with distinct inventory tiers (out-of-stock, low-stock, and standard stock).
-- **Automated Verification**: Created and executed `apps/backend/src/scripts/verify-milestone-02b.ts` — **24 out of 24 tests passed**.
-- **Catalog Idempotency**: Verified seed script re-run idempotency — 0 duplicate products or variants created.
+- **Monorepo Structure**: Preserved `apps/backend`, `apps/storefront`, `packages/ui`, `packages/types`, and `packages/config`.
+- **Node.js Environment**: Maintained Node runtime managed via `fnm` at `v22.23.4` (LTS) configured in `.node-version` and `.nvmrc`.
+- **Commerce Engine**: Confirmed Medusa core packages at official stable release `2.22.1` with native DML, remoteQuery, and workflows.
+- **PostgreSQL Database**: Verified local PostgreSQL cluster running on port 5432 (`medusa_ecom_buddy`, UTF-8) with zero data loss or resets.
+- **Redis Cache & Events**: Restored Redis development server on port 6379 powering Medusa caching and event bus.
+- **Admin Credentials**: Retained administrative identity rotated via Medusa's official `AuthModuleService`.
+- **Store Configuration**: Preserved India Region (`reg_01M617GB6G0JD57ZT481HYV9MV`, `INR`), Default Sales Channel (`sc_01M60XB5ZV6YW1GEH67C70CEPC`), and Stock Location (`sloc_01M617GB91Z6SBE07FSBN5DNP1`).
 
 ---
 
-## 2. Foundation Upgrade & Configuration Preflight
+## 2. Errors Identified During Implementation & Diagnostics
 
-| Component | Previous Version | Target Version | Status | Resolution Detail |
-| :--- | :--- | :--- | :--- | :--- |
-| **Node.js** | System Node | `v22.23.4` (LTS) | VERIFIED | Managed via `fnm 1.39.0`. `.node-version` and `.nvmrc` recorded. |
-| **Medusa Core** | `2.18.0` | `2.22.1` | VERIFIED | Upgraded `@medusajs/medusa`, `@medusajs/framework`, `@medusajs/cli`, `@medusajs/admin-sdk`. |
-| **Cache Module** | `Modules.CACHE` | `Modules.CACHING` | VERIFIED | Configured `@medusajs/medusa/caching` with provider `@medusajs/medusa/caching-redis`. |
-| **Workflow Engine** | `workflow-engine-redis` | `2.22.1` | VERIFIED | Fixed deprecated options to `{ redis: { redisUrl } }`. |
-| **Database Migrations**| Core Schema | `2.22.1` Migrations | VERIFIED | Applied migrations including link table `product_variant_inventory_item`. |
-| **Admin Auth Rotation**| Raw SQL Script | `AuthModuleService` | VERIFIED | Rotated credentials safely using Medusa `authService.updateProvider`. |
+During implementation and troubleshooting, several concrete technical issues were identified and diagnosed:
 
----
-
-## 3. Product Catalog & Category Architecture
-
-### 3.1 Taxonomy Breakdown
-The catalog consists of **8 distinct Indian-market product categories**, each seeded with 65 curated products:
-
-1. **Electronics & Audio** (`ELEC`): 65 products, 3 color variants each (Matte Black, Arctic White, Gunmetal Grey).
-2. **Apparel & Ethnic Wear** (`APPR`): 65 products, 4 size variants each (S, M, L, XL).
-3. **Home & Kitchen Living** (`HOME`): 65 products, 2 edition variants each (Standard Edition, Premium Set).
-4. **Health & Ayurvedic Wellness** (`WELL`): 65 products, 2 pack size variants each (Pack of 1, Pack of 2).
-5. **Books & Artisanal Stationery** (`BOOK`): 65 products, 2 edition variants each (Collector Edition, Studio Edition).
-6. **Gourmet & Organic Foods** (`FOOD`): 65 products, 2 weight variants each (250g, 500g).
-7. **Sports & Fitness Gear** (`SPRT`): 65 products, 2 variant tiers each (Standard, Pro Athlete).
-8. **Clean Beauty & Personal Care** (`BEAU`): 65 products, 2 volume variants each (50ml, 100ml).
-
-### 3.2 Product Collections
-Four merchandising collections are configured and deterministically linked:
-- **Bestsellers** (`bestsellers`)
-- **Festive Specials** (`festive-specials`)
-- **New Arrivals** (`new-arrivals`)
-- **Eco-Conscious Living** (`eco-conscious-living`)
-
-### 3.3 Status Distribution
-- **Published**: 472 products (~91%) — immediately available for Store API browsing.
-- **Draft**: 48 products (~9%) — reserved for testing merchant administrative workflows and publication toggles.
+1. **Configstore Sandbox EPERM**: When running `medusa exec` or `medusa build`, the CLI's internal `configstore` package attempted to write to `C:\Users\Asus\.config\medusa\config.json`, triggering `EPERM: operation not permitted`.
+2. **PostgreSQL Socket Permissions**: The PostgreSQL server process bound to localhost port 5432 required explicit network socket access, which caused `ECONNREFUSED` or `EACCES` when invoked without local network socket permissions.
+3. **RemoteQuery Collection Alias Mismatch**: Medusa v2 remoteQuery throws `Service with alias "collection" was not found` if queried as `collection` rather than its registered entity name `product_collection`.
+4. **Product Collection Method Mismatches**: Direct service calls to `productModule.listCollections` and `createCollections` failed TypeScript compilation because Medusa v2 uses `listProductCollections` / `createProductCollections` or official workflows `createCollectionsWorkflow`.
+5. **TypeScript Strict JSON Inference**: In `verify-milestone-02b.ts`, `await res.json()` was inferred as `unknown` under strict compiler options, causing `TS18046`.
+6. **Store API Count Semantics**: Store API `GET /store/products` only exposes published products, returning 472 items rather than the raw database count of 520 (which includes 48 draft products).
 
 ---
 
-## 4. Inventory, Stock Locations & SKU Strategy
+## 3. Fixes Implemented
 
-### 4.1 Stock Location
-- **Location Name**: `India Central Warehouse`
-- **Location ID**: `sloc_01M617GB91Z6SBE07FSBN5DNP1`
-- **Address**: Bandra Kurla Complex, Mumbai, Maharashtra 400051, India
-- **Association**: Linked to Default Sales Channel (`sc_01M60XB5ZV6YW1GEH67C70CEPC`).
+To resolve all identified issues strictly using official Medusa v2 APIs and runtime best practices:
 
-### 4.2 Stock Distribution Strategy
-Stock levels were deterministically assigned across the 1,235 variants to support comprehensive operational testing:
-- **Out of Stock** (Quantity = 0): 48 items (~4%) for out-of-stock badge and backorder prevention testing.
-- **Low Stock** (Quantity = 5): 66 items (~5%) for low-inventory alerts (threshold <= 10).
-- **Healthy Stock** (Quantity 50 to 250): 1,122 items (~91%) for standard order placement.
-
-### 4.3 SKU Naming Convention
-SKUs are generated deterministically and indexed with unique constraints in PostgreSQL:
-`TEB-[CATEGORY_CODE]-[PRODUCT_NUMBER]-[VARIANT_ID]`  
-*Example SKUs*: `TEB-ELEC-001-V1`, `TEB-APPR-015-V3`, `TEB-FOOD-064-V2`.
+1. **Isolated Config Home**: Injected `$env:XDG_CONFIG_HOME = "$pwd\.config"` in development scripts, keeping Medusa configuration within the workspace directory and preventing global home directory EPERM failures.
+2. **Correct RemoteQuery Entity**: Standardized all collection lookups on `product_collection` across [`apps/backend/src/scripts/seed.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/scripts/seed.ts) and [`apps/backend/src/scripts/verify-milestone-02b.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/scripts/verify-milestone-02b.ts).
+3. **Official Collection Workflows**: Replaced deprecated direct methods with official `@medusajs/core-flows` workflow `createCollectionsWorkflow(container).run()`.
+4. **Strict Type Casting**: Cast HTTP JSON responses appropriately (`as any`) in verification assertions, satisfying strict TypeScript compiler rules.
+5. **Accurate Store API Assertions**: Aligned verification assertions with Medusa Store API semantics: confirming 520 total products in the catalog database while validating that the public Store API correctly filters and returns only published products (472 items).
+6. **Modern Caching Configuration**: Migrated from deprecated `Modules.CACHE` to `Modules.CACHING` resolving `@medusajs/medusa/caching` with `@medusajs/medusa/caching-redis`.
+7. **Workflow Redis Options**: Updated `workflow-engine-redis` options to `{ redis: { redisUrl } }`.
 
 ---
 
-## 5. Seed Script Architecture & Idempotency
+## 4. Product Count & Catalog Capacity
 
-The seed generator is implemented at [`apps/backend/src/scripts/seed.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/scripts/seed.ts):
-- **Command**: `npm run seed` (or `npm run seed --workspace=@the-ecom-buddy/backend`)
-- **Container Execution**: Uses official Medusa container resolution via `npx medusa exec ./src/scripts/seed.ts`.
-- **Batch Processing**: Products are created in batches of 25 using `createProductsWorkflow(container).run()`.
-- **Inventory Linking**: Variant inventory item IDs are retrieved and populated via `inventoryModule.createInventoryLevels()` in batches of 100.
-- **Idempotency Guard**:
-  ```ts
-  const existingProducts = await query({ entryPoint: "product", fields: ["id"] });
-  if (existingProducts.length >= 500) {
-    console.log("[seed] Catalog already contains >= 500 products. Skipping product creation to ensure idempotency.");
-    return;
-  }
-  ```
-- **Re-run Test**: Verified running `npm run seed` a second time cleanly skipped duplicate creation and exited with code 0.
+- **Total Distinct Products**: **520** (Exceeding the mandatory $\ge 500$ requirement).
+- **Product Distribution**: 65 products evenly distributed across **8 commercial categories**:
+  1. *Electronics & Audio* (65 items)
+  2. *Apparel & Ethnic Wear* (65 items)
+  3. *Home & Kitchen Living* (65 items)
+  4. *Health & Ayurvedic Wellness* (65 items)
+  5. *Books & Artisanal Stationery* (65 items)
+  6. *Gourmet & Organic Foods* (65 items)
+  7. *Sports & Fitness Gear* (65 items)
+  8. *Clean Beauty & Personal Care* (65 items)
+- **Product Collections**: 4 merchandising collections (*Bestsellers*, *Festive Specials*, *New Arrivals*, *Eco-Conscious Living*).
+- **Publishing Status**: 472 Published (~91%) / 48 Draft (~9%).
 
 ---
 
-## 6. Functional Verification Test Results
+## 5. Variant Count & SKU Strategy
 
-Automated verification script: [`apps/backend/src/scripts/verify-milestone-02b.ts`](file:///c:/Users/Asus/Desktop/Works/the%20ecom%20buddy/apps/backend/src/scripts/verify-milestone-02b.ts).  
-Command: `npm run verify`  
+- **Total Variants in Database**: **1,235 variants** (Exceeding the mandatory $\ge 1,000$ requirement).
+- **SKU Uniqueness**: **100% unique** across all 1,235 variants (0 duplicates).
+- **SKU Naming Pattern**: `TEB-[CATEGORY_CODE]-[PRODUCT_NUMBER]-[VARIANT_ID]`  
+  *Examples*: `TEB-ELEC-001-V1`, `TEB-APPR-015-V3`, `TEB-FOOD-064-V2`.
+- **Database Index**: Backed by PostgreSQL unique constraint `IDX_product_variant_sku_unique`.
+- **Pricing**: 100% Indian Rupee (`INR`) pricing with realistic market price ranges.
+
+---
+
+## 6. Inventory Test Results
+
+- **Stock Location**: `India Central Warehouse` (`sloc_01M617GB91Z6SBE07FSBN5DNP1`), Bandra Kurla Complex, Mumbai, India.
+- **Sales Channel Association**: Linked to `Default Sales Channel` (`sc_01M60XB5ZV6YW1GEH67C70CEPC`).
+- **Total Inventory Levels**: **1,236 levels** set across variant inventory items.
+- **Inventory Distribution**:
+  - **Out of Stock** (Quantity = 0): 48 items (~4%) for out-of-stock badge testing.
+  - **Low Stock** (Quantity = 5): 66 items (~5%) for low-inventory alerts ($\le 10$).
+  - **Healthy Stock** (Quantity 50 to 250): 1,122 items (~91%) for standard order fulfillment.
+- **Inventory Lifecycle**: Follows native Medusa reservation and fulfillment model; no conflicting custom stock deduction logic.
+
+---
+
+## 7. API Test Results (24/24 Passed)
+
+Automated verification suite executed via `npm run verify`:
 
 ```
 ==============================================================================
@@ -134,13 +117,13 @@ Command: `npm run verify`
   [PASS] Test 11: Normal stock (>10) items present in seed data (1,122 items)
 
 --- TEST SUITE 3: Official Medusa Product Lifecycle Workflows ---
-  [PASS] Test 12: Product Creation via createProductsWorkflow (ID: prod_01M619C1DQ4K7570TKAMY2Y3JF)
+  [PASS] Test 12: Product Creation via createProductsWorkflow
   [PASS] Test 13: Product Update and Status Transition to Draft via updateProductsWorkflow
   [PASS] Test 14: Product Deletion via deleteProductsWorkflow (verified not found post-deletion)
 
 --- TEST SUITE 4: Store API Endpoints & Regional Pricing ---
-  [PASS] Test 15: Publishable API key available for Store API requests (pk_ff34c9cc987ee...)
-  [PASS] Test 16: India Region (INR) active (reg_01M617GB6G0JD57ZT481HYV9MV)
+  [PASS] Test 15: Publishable API key available for Store API requests
+  [PASS] Test 16: India Region (INR) active
   [PASS] Test 17: Store API GET /store/products (Page 1) returns HTTP 200 (Latency: 385ms)
   [PASS] Test 18: Store API returns 50 products for limit=50 (Count on Page 1: 50)
   [PASS] Test 19: Store API total count accurately reflects published products (Reported: 472)
@@ -155,52 +138,30 @@ Command: `npm run verify`
 ==============================================================================
 ```
 
----
-
-## 7. Performance Benchmarks & Database Indexing
-
-### 7.1 Store API Latencies
-- `GET /store/products?limit=50&offset=0`: **385 ms**
-- `GET /store/products?limit=50&offset=50`: **210 ms**
-- `GET /store/products?category_id[]=...`: **180 ms**
-
-### 7.2 Core Database Indexes (PostgreSQL 18.4)
-Audited via `apps/backend/src/scripts/check-indexes.ts`:
-- **`product`**:
-  - `product_pkey` (Primary Key: `id`)
-  - `IDX_product_handle_unique` (Unique index on `handle`)
-  - `IDX_product_collection_id` (B-tree on `collection_id`)
-  - `IDX_product_status` (B-tree on `status`)
-  - `IDX_product_deleted_at` (B-tree on soft-deletion timestamp)
-- **`product_variant`**:
-  - `product_variant_pkey` (Primary Key: `id`)
-  - `IDX_product_variant_sku_unique` (Unique constraint on `sku`)
-  - `IDX_product_variant_product_id` (B-tree on `product_id`)
-  - `IDX_product_variant_deleted_at` (B-tree on soft-deletion timestamp)
-- **`inventory_item`**:
-  - `inventory_item_pkey` (Primary Key: `id`)
-  - `IDX_inventory_item_sku` (B-tree on `sku`)
-- **`inventory_level`**:
-  - `inventory_level_pkey` (Primary Key: `id`)
-  - `IDX_inventory_level_location_id_inventory_item_id` (Composite index)
-  - `IDX_inventory_level_inventory_item_id`
-  - `IDX_inventory_level_location_id`
-- **`product_variant_inventory_item`**:
-  - `IDX_variant_id_17b4c4e35` (Link table index)
-  - `IDX_inventory_item_id_17b4c4e35` (Link table index)
+### Idempotency Verification:
+Re-running `npm run seed` verified idempotency guard:
+```
+[seed] Current product catalog size: 520 products
+[seed] Catalog already contains >= 500 products. Skipping product creation to ensure idempotency.
+```
 
 ---
 
-## 8. Build & Typecheck Verification
+## 8. Build & Quality Results
 
-All monorepo packages build and pass TypeScript checks with zero errors:
-1. `npm run typecheck --workspaces`: **0 errors** across `@the-ecom-buddy/backend`, `@the-ecom-buddy/storefront`, `@the-ecom-buddy/ui`, `@the-ecom-buddy/types`, and `@the-ecom-buddy/config`.
-2. `npm run build:backend`: **Exit 0** (Medusa backend and admin frontend bundled in 49.9s).
-3. `npm run build:storefront`: **Exit 0** (Next.js 15.5 static routes and API health check built successfully).
+1. **Backend TypeScript Check**: `npm run typecheck --workspace=@the-ecom-buddy/backend` &rarr; **0 errors**.
+2. **Storefront TypeScript Check**: `npm run typecheck --workspace=@the-ecom-buddy/storefront` &rarr; **0 errors**.
+3. **Monorepo TypeScript Check**: `npm run typecheck --workspaces` &rarr; **0 errors** across all packages.
+4. **Backend Build**: `npm run build:backend` &rarr; **Exit 0** (Backend build and Vite admin build completed in 49.9s).
+5. **Storefront Build**: `npm run build:storefront` &rarr; **Exit 0** (Next.js 15.5 production build successful).
+6. **Medusa Database Migrations**: `npm run db:migrate` &rarr; **Exit 0** (All modules, link syncs, and search indexes up-to-date).
+7. **Redis Connection**: Verified connection to `redis://127.0.0.1:6379` for caching, events, and workflow engine.
+8. **Database Indexes**: Verified B-tree and unique indexes on `product`, `product_variant` (`IDX_product_variant_sku_unique`), `inventory_item`, `inventory_level`, and `product_variant_inventory_item`.
 
 ---
 
-## 9. Conclusion & Readiness
+## 9. Remaining Issues & Readiness
 
-Milestone 02B is complete and verified. The catalog is production-ready for Milestone 03 (Cart, Indian Checkout, and Payment Integration).
-No further application code will be executed until Milestone 02B review and formal user approval.
+- **Remaining Issues**: **None**. All criteria for Milestone 02B are fully met.
+- **Development Boundary**: In strict accordance with the project instructions, development is stopped at Milestone 02B. No Milestone 03 application code, checkout UI, or payment gateway logic has been started.
+- **Next Milestone**: The catalog, variants, inventory, and Store API are verified and ready for **Milestone 03: Cart, Indian Checkout, and Payment Integration**.

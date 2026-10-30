@@ -28,6 +28,7 @@
     "verify:03c": "npm run verify:03c --workspace=@the-ecom-buddy/merchant",
     "verify:03d": "npm run verify:03d --workspace=@the-ecom-buddy/merchant",
     "verify:03e": "npm run verify:03e --workspace=@the-ecom-buddy/merchant",
+    "verify:04a": "npm run verify:04a --workspace=@the-ecom-buddy/storefront",
     "dev:backend": "npm run dev --workspace=@the-ecom-buddy/backend",
     "dev:storefront": "npm run dev --workspace=@the-ecom-buddy/storefront",
     "dev:merchant": "npm run dev --workspace=@the-ecom-buddy/merchant",

@@ -178,3 +178,18 @@ export const THEME_PRESET_SPECS = {
     },
   },
 } as const;
+
+export type * from "./theme/types";
+export * from "./theme/ThemeRoot";
+export * from "./theme/Header";
+export * from "./theme/MobileNavDrawer";
+export * from "./theme/HeroSlider";
+export * from "./theme/TrustBar";
+export * from "./theme/FeaturedCategories";
+export * from "./theme/ProductGrid";
+export * from "./theme/PromotionalBanner";
+export * from "./theme/EditorialStory";
+export * from "./theme/NewsletterSection";
+export * from "./theme/Footer";
+export * from "./theme/StorefrontThemeRenderer";
+

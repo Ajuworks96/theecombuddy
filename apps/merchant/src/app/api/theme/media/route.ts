@@ -61,6 +61,18 @@ export async function POST(req: NextRequest) {
 
     // 3. Generate sanitized unique filename
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // SVG security audit: reject embedded scripts and event handlers
+    if (file.type === "image/svg+xml") {
+      const text = buffer.toString("utf-8");
+      if (/<script\b/i.test(text) || /\bon\w+\s*=/i.test(text) || /javascript:/i.test(text)) {
+        return NextResponse.json(
+          { error: "SVG contains unsafe script elements or event handlers" },
+          { status: 400 }
+        );
+      }
+    }
+
     const ext = path.extname(file.name).toLowerCase() || (file.type === "image/svg+xml" ? ".svg" : ".png");
     const safeBaseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 30);
     const uniqueFileName = `theme_${assetType}_${Date.now()}_${safeBaseName}${ext}`;

@@ -25,7 +25,7 @@ import {
   CheckIcon,
 } from "@/components/icons";
 import { Badge } from "@/components/badge";
-import { THEME_PRESET_SPECS } from "@the-ecom-buddy/ui";
+import { THEME_PRESET_SPECS, StorefrontThemeRenderer } from "@the-ecom-buddy/ui";
 import { ThemeConfig, ThemePresetId, HeroSlide, HomepageSection, ThemeVersionRecord } from "@the-ecom-buddy/types";
 
 export default function AppearancePage() {
@@ -1264,201 +1264,20 @@ export default function AppearancePage() {
           {/* Device Frame Simulator Canvas */}
           <div className="flex justify-center bg-slate-950/80 border border-slate-800 p-6 rounded-2xl min-h-[700px] overflow-x-auto">
             <div
-              className={`transition-all duration-300 bg-white text-slate-900 shadow-2xl rounded-xl overflow-hidden border border-slate-300 flex flex-col ${
+              className={`transition-all duration-300 shadow-2xl rounded-xl overflow-hidden border border-slate-700 flex flex-col ${
                 previewDevice === "desktop"
                   ? "w-full max-w-[1200px]"
                   : previewDevice === "tablet"
                   ? "w-[768px]"
                   : "w-[375px]"
               }`}
-              style={{
-                backgroundColor: theme.colors.surfaceBase,
-                color: theme.colors.textPrimary,
-                fontFamily: theme.typography?.bodyFont || "sans-serif",
-              }}
             >
-              {/* 1. Announcement Bar */}
-              {theme.announcement?.enabled && (
-                <div
-                  className="py-2 px-4 text-center text-xs font-medium tracking-wide flex items-center justify-center gap-2 transition"
-                  style={{
-                    backgroundColor: theme.announcement.bgColor,
-                    color: theme.announcement.textColor,
-                  }}
-                >
-                  <span>{theme.announcement.text}</span>
-                </div>
-              )}
-
-              {/* 2. Store Header */}
-              <header
-                className="py-4 px-6 border-b flex items-center justify-between"
-                style={{
-                  backgroundColor: theme.colors.headerBg,
-                  borderColor: theme.colors.borderSubtle,
-                  color: theme.colors.headerText,
-                }}
-              >
-                <div className="flex items-center gap-6">
-                  <div className="font-bold text-lg tracking-tight" style={{ fontFamily: theme.typography?.displayFont }}>
-                    {theme.identity?.storeName || "The Ecom Buddy"}
-                  </div>
-                  {previewDevice === "desktop" && (
-                    <nav className="flex items-center gap-4 text-xs font-medium text-slate-400">
-                      {(theme.navigation?.menuItems || []).slice(0, 5).map((item) => (
-                        <span key={item.id} className="hover:text-white cursor-pointer">
-                          {item.label}
-                        </span>
-                      ))}
-                    </nav>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">₹ INR</span>
-                  <span>Cart (0)</span>
-                </div>
-              </header>
-
-              {/* 3. Hero Carousel Component (Interactive in preview) */}
-              {currentPreviewSlide && (
-                <div className="relative h-[380px] md:h-[480px] overflow-hidden flex items-center">
-                  {/* Background Image */}
-                  <div
-                    className="absolute inset-0 bg-cover bg-center transition-all duration-700"
-                    style={{
-                      backgroundImage: `url(${
-                        previewDevice === "mobile"
-                          ? currentPreviewSlide.mobileImageUrl || currentPreviewSlide.desktopImageUrl
-                          : currentPreviewSlide.desktopImageUrl
-                      })`,
-                    }}
-                  />
-                  {/* Scrim Overlay */}
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backgroundColor: currentPreviewSlide.overlayColor,
-                      opacity: (currentPreviewSlide.overlayOpacity || 40) / 100,
-                    }}
-                  />
-
-                  {/* Slide Content */}
-                  <div
-                    className={`relative z-10 p-6 md:p-12 w-full max-w-2xl text-${currentPreviewSlide.textAlignment}`}
-                    style={{ color: currentPreviewSlide.textColor }}
-                  >
-                    {currentPreviewSlide.badge && (
-                      <span className="inline-block text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded mb-3">
-                        {currentPreviewSlide.badge}
-                      </span>
-                    )}
-                    {currentPreviewSlide.subheading && (
-                      <div className="text-xs font-mono uppercase tracking-widest text-emerald-400 mb-1">
-                        {currentPreviewSlide.subheading}
-                      </div>
-                    )}
-                    <h2
-                      className="text-2xl md:text-4xl font-extrabold leading-tight mb-3"
-                      style={{ fontFamily: theme.typography?.displayFont }}
-                    >
-                      {currentPreviewSlide.heading}
-                    </h2>
-                    <p className="text-xs md:text-sm text-slate-300 mb-6 max-w-lg leading-relaxed">
-                      {currentPreviewSlide.description}
-                    </p>
-                    <button
-                      className="px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition shadow-lg"
-                      style={{
-                        backgroundColor: currentPreviewSlide.buttonBgColor,
-                        color: currentPreviewSlide.buttonTextColor,
-                        borderRadius: theme.styling?.buttonStyle === "pill" ? "9999px" : theme.styling?.borderRadius === "sm" ? "4px" : "8px",
-                      }}
-                    >
-                      {currentPreviewSlide.ctaLabel}
-                    </button>
-                  </div>
-
-                  {/* Carousel Controls */}
-                  <div className="absolute bottom-4 right-6 z-20 flex items-center gap-2">
-                    <button
-                      onClick={() => setPreviewSlideIndex((prev) => (prev > 0 ? prev - 1 : slides.length - 1))}
-                      className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/90 transition"
-                    >
-                      <ChevronLeftIcon size={16} />
-                    </button>
-                    <span className="text-xs font-mono text-white">
-                      {previewSlideIndex + 1} / {slides.length}
-                    </span>
-                    <button
-                      onClick={() => setPreviewSlideIndex((prev) => (prev < slides.length - 1 ? prev + 1 : 0))}
-                      className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/90 transition"
-                    >
-                      <ChevronRightIcon size={16} />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 4. Trust Benefits Bar */}
-              <div
-                className="py-4 px-6 border-b grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-xs"
-                style={{
-                  backgroundColor: theme.colors.surfaceSubtle,
-                  borderColor: theme.colors.borderSubtle,
-                }}
-              >
-                <div>⚡ Pan-India Express Air</div>
-                <div>💵 Cash on Delivery</div>
-                <div>🔄 7-Day Easy Returns</div>
-                <div>🛡️ 100% Genuine Craft</div>
-              </div>
-
-              {/* 5. Featured Categories Preview */}
-              <div className="p-8 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold" style={{ fontFamily: theme.typography?.displayFont }}>
-                    Featured Categories
-                  </h3>
-                  <span className="text-xs font-medium text-emerald-400">View All &rarr;</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {(previewData.categories.length > 0
-                    ? previewData.categories
-                    : [
-                        { name: "Electronics & Audio", handle: "electronics-audio" },
-                        { name: "Apparel & Ethnic Wear", handle: "apparel-ethnic-wear" },
-                        { name: "Home & Kitchen Living", handle: "home-kitchen-living" },
-                        { name: "Health & Ayurvedic", handle: "health-ayurvedic-wellness" },
-                      ]
-                  ).slice(0, 4).map((c: any, i: number) => (
-                    <div
-                      key={i}
-                      className="p-4 rounded-lg border text-center transition hover:border-emerald-500 cursor-pointer"
-                      style={{
-                        backgroundColor: theme.colors.surfaceSubtle,
-                        borderColor: theme.colors.borderSubtle,
-                      }}
-                    >
-                      <span className="text-xs font-semibold">{c.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 6. Footer Preview */}
-              <footer
-                className="mt-auto p-6 border-t text-xs space-y-2"
-                style={{
-                  backgroundColor: theme.colors.footerBg,
-                  borderColor: theme.colors.borderSubtle,
-                  color: theme.colors.footerText,
-                }}
-              >
-                <div className="flex flex-col md:flex-row justify-between items-center gap-2">
-                  <div className="font-semibold">{theme.identity?.storeName}</div>
-                  <div className="text-[11px] opacity-75">{theme.footer?.copyrightText}</div>
-                </div>
-              </footer>
+              <StorefrontThemeRenderer
+                theme={theme as any}
+                categories={previewData.categories}
+                products={previewData.products}
+                isMerchantPreview={true}
+              />
             </div>
           </div>
         </div>

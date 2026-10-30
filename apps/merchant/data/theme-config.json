@@ -1,6 +1,6 @@
 {
   "draft": {
-    "id": "theme_cfg_v4_1793281982584",
+    "id": "theme_cfg_v5_1793340381660",
     "colors": {
       "footerBg": "#060911",
       "headerBg": "#0B0F19",
@@ -273,7 +273,7 @@
         "displayOrder": 9
       }
     ],
-    "updatedAt": "2026-10-29T13:53:02.601Z",
+    "updatedAt": "2026-10-30T06:06:21.679Z",
     "heroSlider": {
       "slides": [
         {
@@ -454,7 +454,7 @@
     }
   },
   "published": {
-    "id": "theme_cfg_v4_1793281982584",
+    "id": "theme_cfg_v5_1793340381660",
     "colors": {
       "footerBg": "#060911",
       "headerBg": "#0B0F19",
@@ -575,7 +575,7 @@
       "headerStyle": "sticky",
       "borderRadius": "sm"
     },
-    "version": 4,
+    "version": 5,
     "identity": {
       "logoUrl": "/images/logo.svg",
       "tagline": "Clean Tagline ",
@@ -724,7 +724,7 @@
         "displayOrder": 9
       }
     ],
-    "updatedAt": "2026-10-29T13:53:02.583Z",
+    "updatedAt": "2026-10-30T06:06:21.658Z",
     "heroSlider": {
       "slides": [
         {
@@ -894,7 +894,7 @@
       "displayFont": "Plus Jakarta Sans",
       "headingWeight": "semibold"
     },
-    "publishedAt": "2026-10-29T13:53:02.583Z",
+    "publishedAt": "2026-10-30T06:06:21.658Z",
     "announcement": {
       "text": "🚀 FESTIVE LAUNCH: Free Express Air Shipping On Orders Over ₹999!",
       "bgColor": "#10B981",

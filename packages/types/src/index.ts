@@ -246,3 +246,26 @@ export interface ThemeVersionRecord {
   createdAt: string;
   publishedAt?: string | null;
 }
+
+export interface PublicPublishedTheme {
+  version: number;
+  presetId: ThemePresetId;
+  presetName: string;
+  publishedAt: string;
+  identity: ThemeConfig["identity"];
+  typography: ThemeConfig["typography"];
+  colors: ThemeConfig["colors"];
+  styling: ThemeConfig["styling"];
+  announcement: ThemeConfig["announcement"];
+  navigation: ThemeConfig["navigation"];
+  heroSlider: {
+    autoplay: boolean;
+    autoplaySpeed: number;
+    showArrows: boolean;
+    showDots: boolean;
+    slides: HeroSlide[];
+  };
+  sections: HomepageSection[];
+  footer: ThemeConfig["footer"];
+  domain: ThemeConfig["domain"];
+}

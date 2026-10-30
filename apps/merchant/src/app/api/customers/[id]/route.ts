@@ -69,3 +69,27 @@ async function handleUpdate(
   }
 }
 
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession();
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const result = await medusaAdmin.deleteCustomer(session.token, id);
+    return NextResponse.json(result);
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || `Failed to delete customer ${id}` },
+      { status: err?.status || 500 }
+    );
+  }
+}
+
+

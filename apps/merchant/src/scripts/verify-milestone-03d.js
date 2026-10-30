@@ -540,9 +540,10 @@ async function runMilestone03DVerification() {
     recordTest("Suite 4", "Test 25: Negative price validation", false, err.message);
   }
 
+  const originalUsd = sampleVariant?.prices?.USD;
+  const originalInr = sampleVariant?.prices?.INR;
   try {
     // Update USD price and preserve INR base price
-    const originalInr = sampleVariant.prices.INR;
     const testUsd = 49;
 
     const saveRes = await request("/api/pricing/bulk", {
@@ -585,6 +586,30 @@ async function runMilestone03DVerification() {
     );
   } catch (err) {
     recordTest("Suite 4", "Test 26-27: Bulk pricing updates", false, err.message);
+  } finally {
+    if (originalUsd !== undefined && sampleVariant?.id && sampleProduct?.id) {
+      try {
+        await request("/api/pricing/bulk", {
+          method: "POST",
+          body: {
+            updates: [
+              {
+                productId: sampleProduct.id,
+                variantId: sampleVariant.id,
+                prices: [
+                  { currency_code: "inr", amount: originalInr },
+                  { currency_code: "usd", amount: originalUsd },
+                  { currency_code: "aed", amount: sampleVariant.prices.AED || 177 },
+                  { currency_code: "gbp", amount: sampleVariant.prices.GBP || 38 },
+                  { currency_code: "eur", amount: sampleVariant.prices.EUR || 45 },
+                ],
+              },
+            ],
+          },
+          cookie: sessionCookie,
+        });
+      } catch (_) {}
+    }
   }
 
   // -------------------------------------------------------------------------

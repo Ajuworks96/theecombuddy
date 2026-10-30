@@ -29,6 +29,8 @@ export interface StoreProduct {
     id: string;
     title: string;
     sku?: string | null;
+    inventory_quantity?: number | null;
+    manage_inventory?: boolean | null;
     calculated_price?: {
       calculated_amount: number;
       currency_code: string;
@@ -51,3 +53,4 @@ export interface StorefrontThemeProps {
   onSelectRegion?: (region: StoreRegion) => void;
   isMerchantPreview?: boolean;
 }
+

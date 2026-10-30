@@ -1,13 +1,15 @@
 "use client";
 
 import React from "react";
-import type { HomepageSection } from "@the-ecom-buddy/types";
+import type { HomepageSection, ThemePresetId } from "@the-ecom-buddy/types";
 import type { StoreProduct, StoreRegion } from "./types";
 
 interface ProductGridProps {
   section?: HomepageSection;
   products?: StoreProduct[];
   currentRegion?: StoreRegion;
+  presetId?: ThemePresetId;
+  cardStyle?: "bordered" | "tactile" | "elevated" | "flat";
 }
 
 // Currency format helper
@@ -23,7 +25,6 @@ function formatPrice(amount?: number | null, currencyCode: string = "inr"): stri
   };
   const sym = symbols[upper] || `${upper} `;
 
-  // Medusa prices can be integer units or decimals depending on currency
   return `${sym}${Number(amount).toLocaleString("en-IN", {
     minimumFractionDigits: upper === "INR" ? 0 : 2,
     maximumFractionDigits: 2,
@@ -34,6 +35,8 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   section,
   products = [],
   currentRegion,
+  presetId = "crescendo",
+  cardStyle = "bordered",
 }) => {
   const title = section?.title || "Featured Products";
   const subtitle = section?.subtitle || "Handpicked selections from our catalog";
@@ -86,13 +89,25 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
               const hasDiscount = originalAmount && originalAmount > amount;
               const collectionTitle = prod.collection?.title || prod.categories?.[0]?.name;
 
+              // Card styling classes based on preset & style
+              const cardClass =
+                cardStyle === "tactile"
+                  ? "group flex flex-col justify-between rounded-2xl overflow-hidden border border-stone-200 bg-white shadow-sm hover:shadow-md transition-all p-3"
+                  : cardStyle === "elevated"
+                  ? "group flex flex-col justify-between rounded-3xl overflow-hidden border border-zinc-700 bg-zinc-900 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all"
+                  : cardStyle === "flat"
+                  ? "group flex flex-col justify-between rounded-xl overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-base)] transition-all hover:border-[var(--brand-primary)]"
+                  : "group flex flex-col justify-between rounded-[var(--theme-radius)] overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-subtle)] transition-all hover:border-[var(--brand-primary)] hover:shadow-xl";
+
               return (
-                <div
-                  key={prod.id}
-                  className="group flex flex-col justify-between rounded-[var(--theme-radius)] overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-subtle)] transition-all hover:border-[var(--brand-primary)] hover:shadow-xl"
-                >
+                <div key={prod.id} className={cardClass}>
                   {/* Top Thumbnail Image */}
-                  <a href={`/products/${prod.handle}`} className="relative block aspect-square overflow-hidden bg-[var(--surface-muted)]">
+                  <a
+                    href={`/products/${prod.handle}`}
+                    className={`relative block aspect-square overflow-hidden bg-[var(--surface-muted)] ${
+                      cardStyle === "tactile" ? "rounded-xl" : ""
+                    }`}
+                  >
                     {prod.thumbnail ? (
                       <img
                         src={prod.thumbnail}
@@ -114,10 +129,12 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                       </span>
                     )}
 
-                    {/* Stock status */}
-                    <span className="absolute bottom-3 right-3 px-2 py-0.5 rounded text-[10px] font-medium bg-black/60 text-white backdrop-blur-sm">
-                      In Stock
-                    </span>
+                    {/* Stock availability check */}
+                    {firstVariant && (firstVariant.inventory_quantity == null || firstVariant.inventory_quantity > 0) && (
+                      <span className="absolute bottom-3 right-3 px-2 py-0.5 rounded text-[10px] font-medium bg-black/60 text-white backdrop-blur-sm">
+                        Available
+                      </span>
+                    )}
                   </a>
 
                   {/* Product Details */}
@@ -128,9 +145,18 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                           {collectionTitle}
                         </p>
                       )}
-                      <h3 className="font-[var(--font-display)] text-sm font-bold text-[var(--text-primary)] line-clamp-2 group-hover:text-[var(--brand-primary)] transition-colors">
+                      <h3
+                        className={`font-[var(--font-display)] text-sm font-bold text-[var(--text-primary)] line-clamp-2 group-hover:text-[var(--brand-primary)] transition-colors ${
+                          presetId === "velora" ? "font-serif font-medium text-stone-900" : ""
+                        }`}
+                      >
                         <a href={`/products/${prod.handle}`}>{prod.title}</a>
                       </h3>
+                      {firstVariant?.sku && presetId === "crescendo" && (
+                        <p className="mt-1 font-mono text-[10px] text-emerald-400/80">
+                          SKU: {firstVariant.sku}
+                        </p>
+                      )}
                       {prod.subtitle && (
                         <p className="mt-1 text-xs text-[var(--text-secondary)] line-clamp-1">
                           {prod.subtitle}
@@ -153,9 +179,15 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
                       <a
                         href={`/products/${prod.handle}`}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] transition-colors"
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--theme-radius)] transition-colors ${
+                          presetId === "aero_step"
+                            ? "bg-red-500 text-white rounded-full hover:bg-red-600 shadow-md font-bold"
+                            : presetId === "velora"
+                            ? "bg-stone-900 text-stone-100 hover:bg-stone-800 rounded-lg"
+                            : "bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)]"
+                        }`}
                       >
-                        View
+                        {presetId === "crescendo" ? "Configure" : presetId === "velora" ? "Discover" : "View"}
                       </a>
                     </div>
                   </div>

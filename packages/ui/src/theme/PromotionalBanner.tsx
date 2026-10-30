@@ -11,12 +11,12 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({ section })
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const cfg = section?.config || {};
-  const badge = cfg.badge || "LIMITED TIME OFFER";
-  const headline = cfg.headline || "Festive Celebration Savings Up to 30% Off";
-  const description = cfg.description || "Use coupon code WELCOME10 or FLAT100 during checkout.";
-  const ctaLabel = cfg.ctaLabel || "Shop Festive Specials";
-  const ctaLink = cfg.ctaLink || "/collections/festive-specials";
-  const couponCode = "WELCOME10";
+  const badge = cfg.badge || "VERIFIED STORE OFFER";
+  const headline = cfg.headline || "Seasonal Direct-to-Consumer Savings";
+  const description = cfg.description || "Apply verified store promotion during checkout.";
+  const ctaLabel = cfg.ctaLabel || "Browse Eligible Items";
+  const ctaLink = cfg.ctaLink || "/products";
+  const couponCode = cfg.couponCode || "WELCOME10";
 
   const handleCopy = (code: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -30,7 +30,7 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({ section })
     <section className="w-full py-12 sm:py-16 bg-[var(--surface-base)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative rounded-[var(--theme-radius)] overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-8 sm:p-12 lg:p-16 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-xl">
-          {/* Subtle background glow */}
+          {/* Background tint glow */}
           <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[var(--brand-primary)]/10 blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-[var(--brand-accent)]/10 blur-3xl pointer-events-none" />
 
@@ -81,17 +81,17 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({ section })
             </div>
           </div>
 
-          {/* Right Column: Visual Product / Festive Image */}
+          {/* Right Column: Verified Visual Showcase */}
           <div className="relative z-10 w-full lg:w-96 shrink-0 aspect-[4/3] rounded-[var(--theme-radius)] overflow-hidden border border-[var(--border-subtle)] shadow-2xl">
             <img
-              src="https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80"
-              alt="Festive Promotion"
+              src={cfg.imageUrl || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80"}
+              alt="Store Promotion"
               className="w-full h-full object-cover object-center"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <div className="absolute bottom-4 left-4 right-4 text-white">
-              <p className="text-xs font-bold uppercase tracking-wider text-[var(--brand-accent)]">Verified Discount</p>
-              <p className="text-sm font-semibold">Applies automatically at checkout</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--brand-accent)]">Active Promotion</p>
+              <p className="text-sm font-semibold">Valid on eligible orders</p>
             </div>
           </div>
         </div>

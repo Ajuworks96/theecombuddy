@@ -9,18 +9,57 @@ interface NewsletterSectionProps {
 
 export const NewsletterSection: React.FC<NewsletterSectionProps> = ({ section }) => {
   const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
 
-  const title = section?.title || "Join the Exclusive Community";
+  const title = section?.title || "Join Store Updates";
   const subtitle =
     section?.subtitle ||
-    "Be the first to hear about curated drops, seasonal private sales, and brand stories.";
+    "Be the first to hear about curated catalog additions, seasonal sales, and brand updates.";
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !email.includes("@")) return;
-    setSubscribed(true);
-    setEmail("");
+    setStatusMessage(null);
+    setIsError(false);
+
+    if (!email || !email.includes("@")) {
+      setIsError(true);
+      setStatusMessage("Please enter a valid email address.");
+      return;
+    }
+
+    if (!consent) {
+      setIsError(true);
+      setStatusMessage("Please check the consent box to agree to store communications.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), consent: true, source: "homepage_section" }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setIsError(true);
+        setStatusMessage(data.error || "Failed to process subscription.");
+      } else {
+        setIsError(false);
+        setStatusMessage(data.message || "Thank you for subscribing! Your email has been added to our updates list.");
+        setEmail("");
+        setConsent(false);
+      }
+    } catch {
+      setIsError(true);
+      setStatusMessage("Unable to connect to subscription service. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -36,15 +75,30 @@ export const NewsletterSection: React.FC<NewsletterSectionProps> = ({ section })
           {subtitle}
         </p>
 
-        {subscribed ? (
-          <div className="mt-8 p-4 rounded-[var(--theme-radius)] bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/30 text-[var(--brand-primary)] font-medium text-sm inline-flex items-center gap-2">
-            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>Thank you for subscribing! We've sent a welcome confirmation to your inbox.</span>
+        {statusMessage && (
+          <div
+            role="status"
+            className={`mt-6 p-4 rounded-[var(--theme-radius)] text-sm inline-flex items-center gap-2 max-w-md mx-auto ${
+              isError
+                ? "bg-red-500/10 border border-red-500/30 text-red-500"
+                : "bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/30 text-[var(--brand-primary)] font-medium"
+            }`}
+          >
+            {!isError ? (
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            <span>{statusMessage}</span>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        )}
+
+        <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-3 max-w-md mx-auto">
+          <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="email"
               required
@@ -55,16 +109,26 @@ export const NewsletterSection: React.FC<NewsletterSectionProps> = ({ section })
             />
             <button
               type="submit"
-              className="px-6 py-3 rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white text-sm font-semibold hover:bg-[var(--brand-primary-hover)] transition-all active:scale-95 shrink-0"
+              disabled={isSubmitting}
+              className="px-6 py-3 rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white text-sm font-semibold hover:bg-[var(--brand-primary-hover)] transition-all active:scale-95 shrink-0 disabled:opacity-50"
             >
-              Subscribe
+              {isSubmitting ? "Subscribing..." : "Subscribe"}
             </button>
-          </form>
-        )}
+          </div>
 
-        <p className="mt-3 text-xs text-[var(--text-muted)]">
-          We respect your privacy. No spam. Unsubscribe at any time.
-        </p>
+          {/* Privacy Consent Checkbox */}
+          <label className="flex items-start gap-2.5 text-left text-xs text-[var(--text-secondary)] cursor-pointer mt-1">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => setConsent(e.target.checked)}
+              className="mt-0.5 rounded border-[var(--border-subtle)] text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+            />
+            <span>
+              I agree to receive store news and promotional communications. Unsubscribe at any time.
+            </span>
+          </label>
+        </form>
       </div>
     </section>
   );

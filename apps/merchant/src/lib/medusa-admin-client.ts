@@ -768,6 +768,22 @@ export class MedusaAdminClient {
   }
 
   /**
+   * Delete customer
+   */
+  async deleteCustomer(
+    token: string,
+    id: string
+  ): Promise<{ id: string; object: string; deleted: boolean }> {
+    return this.request<{ id: string; object: string; deleted: boolean }>(
+      `/admin/customers/${id}`,
+      {
+        method: "DELETE",
+      },
+      token
+    );
+  }
+
+  /**
    * Retrieve promotions
    */
   async getPromotions(

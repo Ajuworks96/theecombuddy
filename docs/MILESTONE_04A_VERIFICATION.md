@@ -202,3 +202,4 @@ Milestone 04A Verification Completed: 40/40 passed (0 failed)
   - Cart & Checkout UI left untouched for subsequent checkout milestone.
   - Cashfree payment provider integration remains untouched.
   - Live Razorpay card transactions remain blocked in sandbox safety mode.
+

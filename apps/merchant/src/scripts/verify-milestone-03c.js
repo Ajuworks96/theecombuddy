@@ -556,6 +556,39 @@ async function runMilestone03CVerification() {
     }
   } catch (err) {
     recordTest("Suite 7", "Test 29-30: Create and update customer", false, err.message);
+  } finally {
+    if (probeCustomerId) {
+      try {
+        const delRes = await request(`/api/customers/${probeCustomerId}`, {
+          method: "DELETE",
+          cookie: sessionCookie,
+        });
+        if (delRes.status !== 200 && adminToken) {
+          await request(
+            `/admin/customers/${probeCustomerId}`,
+            {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${adminToken}` },
+            },
+            BACKEND_URL
+          );
+        }
+      } catch (delErr) {
+        if (adminToken) {
+          try {
+            await request(
+              `/admin/customers/${probeCustomerId}`,
+              {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${adminToken}` },
+              },
+              BACKEND_URL
+            );
+          } catch (_) {}
+        }
+      }
+      probeCustomerId = "";
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -708,6 +741,22 @@ async function runMilestone03CVerification() {
     );
   } catch (err) {
     recordTest("Suite 8", "Test 35-39: Promotions lifecycle", false, err.message);
+  } finally {
+    if (probePctId) {
+      try {
+        await request(`/api/promotions/${probePctId}`, { method: "DELETE", cookie: sessionCookie });
+      } catch (_) {}
+    }
+    if (probeFixId) {
+      try {
+        await request(`/api/promotions/${probeFixId}`, { method: "DELETE", cookie: sessionCookie });
+      } catch (_) {}
+    }
+    if (probeShipId) {
+      try {
+        await request(`/api/promotions/${probeShipId}`, { method: "DELETE", cookie: sessionCookie });
+      } catch (_) {}
+    }
   }
 
   // -------------------------------------------------------------------------

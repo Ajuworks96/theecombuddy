@@ -36,6 +36,18 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Close search modal on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isSearchOpen) {
+        setIsSearchOpen(false);
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSearchOpen]);
+
   // Sort enabled sections by displayOrder
   const activeSections = useMemo(() => {
     const list = [...(theme.sections || [])];
@@ -69,6 +81,7 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
             autoplaySpeed={theme.heroSlider?.autoplaySpeed ?? 5000}
             showArrows={theme.heroSlider?.showArrows ?? true}
             showDots={theme.heroSlider?.showDots ?? true}
+            presetId={theme.presetId}
           />
         );
 
@@ -91,6 +104,8 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
             section={section}
             products={products}
             currentRegion={currentRegion}
+            presetId={theme.presetId}
+            cardStyle={theme.styling?.cardStyle}
           />
         );
 
@@ -101,6 +116,8 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
             section={section}
             products={products.slice(0, 4)}
             currentRegion={currentRegion}
+            presetId={theme.presetId}
+            cardStyle={theme.styling?.cardStyle}
           />
         );
 
@@ -111,6 +128,8 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
             section={section}
             products={products.slice(2, 6)}
             currentRegion={currentRegion}
+            presetId={theme.presetId}
+            cardStyle={theme.styling?.cardStyle}
           />
         );
 
@@ -257,3 +276,4 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
     </ThemeRoot>
   );
 };
+

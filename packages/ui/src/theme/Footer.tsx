@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { PublicPublishedTheme } from "@the-ecom-buddy/types";
 
 interface FooterProps {
@@ -9,11 +9,52 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ theme }) => {
   const { footer, identity, colors } = theme;
-  const [subscribed, setSubscribed] = React.useState(false);
+  const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isError, setIsError] = useState(false);
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubscribed(true);
+    setMessage(null);
+    setIsError(false);
+
+    if (!email || !email.includes("@")) {
+      setIsError(true);
+      setMessage("Please enter a valid email address.");
+      return;
+    }
+
+    if (!consent) {
+      setIsError(true);
+      setMessage("Please check the consent box to subscribe.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), consent: true, source: "footer" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setIsError(true);
+        setMessage(data.error || "Failed to subscribe.");
+      } else {
+        setIsError(false);
+        setMessage(data.message || "Subscribed successfully.");
+        setEmail("");
+        setConsent(false);
+      }
+    } catch {
+      setIsError(true);
+      setMessage("Subscription request failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -30,32 +71,53 @@ export const Footer: React.FC<FooterProps> = ({ theme }) => {
           <div className="pb-12 mb-12 border-b border-[var(--border-subtle)] flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="font-[var(--font-display)] text-lg sm:text-xl font-bold text-white">
-                {footer.newsletterTitle || "Join the Exclusive Community"}
+                {footer.newsletterTitle || "Join Store Updates"}
               </h3>
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] mt-1">
-                {footer.newsletterSubtitle || "Get early access to drops and festive coupons."}
+                {footer.newsletterSubtitle || "Get updates on newly listed products and verified store announcements."}
               </p>
             </div>
-            {subscribed ? (
-              <div className="px-4 py-2 rounded-[var(--theme-radius)] bg-[var(--brand-primary)]/10 text-[var(--brand-primary)] text-xs font-medium">
-                ✓ Thank you for subscribing!
-              </div>
-            ) : (
-              <form onSubmit={handleSubscribe} className="flex gap-2 w-full md:w-auto max-w-md">
-                <input
-                  type="email"
-                  required
-                  placeholder="Enter your email"
-                  className="px-3.5 py-2.5 rounded-[var(--theme-radius)] bg-white/5 border border-white/10 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-[var(--brand-primary)] flex-1 min-w-[220px]"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white text-xs font-semibold hover:bg-[var(--brand-primary-hover)] transition-all shrink-0"
+
+            <div className="flex flex-col gap-2 w-full md:w-auto max-w-md">
+              {message && (
+                <div
+                  role="status"
+                  className={`text-xs p-2 rounded ${
+                    isError ? "text-red-400 bg-red-950/40" : "text-emerald-400 bg-emerald-950/40"
+                  }`}
                 >
-                  Subscribe
-                </button>
+                  {message}
+                </div>
+              )}
+              <form onSubmit={handleSubscribe} className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="px-3.5 py-2.5 rounded-[var(--theme-radius)] bg-white/5 border border-white/10 text-xs text-white placeholder-stone-500 focus:outline-none focus:border-[var(--brand-primary)] flex-1 min-w-[220px]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2.5 rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white text-xs font-semibold hover:bg-[var(--brand-primary-hover)] transition-all shrink-0 disabled:opacity-50"
+                  >
+                    {isSubmitting ? "..." : "Subscribe"}
+                  </button>
+                </div>
+                <label className="flex items-center gap-2 text-[11px] text-[var(--text-muted)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="rounded border-white/20 text-[var(--brand-primary)]"
+                  />
+                  <span>I agree to receive store communications</span>
+                </label>
               </form>
-            )}
+            </div>
           </div>
         )}
 
@@ -194,15 +256,14 @@ export const Footer: React.FC<FooterProps> = ({ theme }) => {
             {footer?.copyrightText || "© 2026 The Ecom Buddy. All rights reserved."}
           </p>
 
-          {/* Payment Badges */}
+          {/* Verified Active Payment Providers Only */}
           {footer?.showPaymentIcons && (
             <div className="flex flex-wrap items-center gap-2 opacity-85">
-              <span className="px-2 py-1 rounded bg-white/10 text-white font-mono text-[10px] font-bold">UPI</span>
-              <span className="px-2 py-1 rounded bg-white/10 text-white font-mono text-[10px] font-bold">Razorpay</span>
-              <span className="px-2 py-1 rounded bg-white/10 text-white font-mono text-[10px] font-bold">RuPay</span>
-              <span className="px-2 py-1 rounded bg-white/10 text-white font-mono text-[10px] font-bold">Visa / MC</span>
-              <span className="px-2 py-1 rounded bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] border border-[var(--brand-primary)]/30 font-semibold text-[10px]">
-                COD Verified
+              <span className="px-2.5 py-1 rounded bg-white/10 text-white font-mono text-[10px] font-bold tracking-wider">
+                Razorpay (UPI / NetBanking / Cards)
+              </span>
+              <span className="px-2.5 py-1 rounded bg-[var(--brand-primary)]/20 text-[var(--brand-primary)] border border-[var(--brand-primary)]/30 font-semibold text-[10px]">
+                Cash on Delivery (COD)
               </span>
             </div>
           )}

@@ -1,6 +1,6 @@
 {
   "draft": {
-    "id": "theme_cfg_v5_1793340381660",
+    "id": "theme_cfg_v14_1793352193654",
     "colors": {
       "footerBg": "#060911",
       "headerBg": "#0B0F19",
@@ -121,7 +121,7 @@
       "headerStyle": "sticky",
       "borderRadius": "sm"
     },
-    "version": 1,
+    "version": 14,
     "identity": {
       "logoUrl": "/images/logo.svg",
       "tagline": "Modern Lifestyle & Everyday Essentials",
@@ -273,7 +273,7 @@
         "displayOrder": 9
       }
     ],
-    "updatedAt": "2026-10-30T06:06:21.679Z",
+    "updatedAt": "2026-10-30T09:23:13.653Z",
     "heroSlider": {
       "slides": [
         {
@@ -443,7 +443,7 @@
       "displayFont": "Plus Jakarta Sans",
       "headingWeight": "semibold"
     },
-    "publishedAt": "2026-10-29T13:49:19.454Z",
+    "publishedAt": "2026-10-30T09:23:13.653Z",
     "announcement": {
       "text": "⚡ FESTIVE FLASH SALE: Flat ₹100 Off + Free Shipping across India! Use code FLAT100",
       "bgColor": "#10B981",
@@ -454,7 +454,7 @@
     }
   },
   "published": {
-    "id": "theme_cfg_v5_1793340381660",
+    "id": "theme_cfg_v14_1793352193654",
     "colors": {
       "footerBg": "#060911",
       "headerBg": "#0B0F19",
@@ -575,23 +575,40 @@
       "headerStyle": "sticky",
       "borderRadius": "sm"
     },
-    "version": 5,
+    "version": 14,
     "identity": {
       "logoUrl": "/images/logo.svg",
-      "tagline": "Clean Tagline ",
-      "storeName": "The Ecom Buddy Pro",
+      "tagline": "Modern Lifestyle & Everyday Essentials",
+      "storeName": "The Ecom Buddy",
       "faviconUrl": "/favicon.ico",
       "socialLinks": {
-        "twitter": "https://twitter.com/theecombuddypro",
-        "instagram": "https://instagram.com/theecombuddypro"
+        "twitter": "https://twitter.com/theecombuddy",
+        "youtube": "https://youtube.com/@theecombuddy",
+        "facebook": "https://facebook.com/theecombuddy",
+        "linkedin": "https://linkedin.com/company/theecombuddy",
+        "instagram": "https://instagram.com/theecombuddy"
       },
-      "contactEmail": "care@theecombuddy.in",
-      "contactPhone": "+91 98765 12345",
+      "contactEmail": "support@theecombuddy.in",
+      "contactPhone": "+91 98765 43210",
       "businessHours": "Mon – Sat: 9:00 AM – 7:00 PM IST",
       "contactAddress": "Maker Maxity, Bandra Kurla Complex, Mumbai, MH 400051, India"
     },
     "presetId": "crescendo",
     "sections": [
+      {
+        "id": "sec_hero",
+        "type": "hero_slider",
+        "title": "Flagship Hero Carousel",
+        "config": {
+          "autoplay": true,
+          "showDots": true,
+          "showArrows": true,
+          "autoplaySpeed": 5000
+        },
+        "subtitle": "Dynamic editorial hero presentation with 6 curated slides",
+        "isEnabled": true,
+        "displayOrder": 1
+      },
       {
         "id": "sec_trust",
         "type": "trust_benefits",
@@ -617,20 +634,6 @@
           ]
         },
         "subtitle": "Key merchant service commitments",
-        "isEnabled": true,
-        "displayOrder": 1
-      },
-      {
-        "id": "sec_hero",
-        "type": "hero_slider",
-        "title": "Flagship Hero Carousel",
-        "config": {
-          "autoplay": true,
-          "showDots": true,
-          "showArrows": true,
-          "autoplaySpeed": 5000
-        },
-        "subtitle": "Dynamic editorial hero presentation with 6 curated slides",
         "isEnabled": true,
         "displayOrder": 2
       },
@@ -720,88 +723,31 @@
           "placeholder": "Enter your personal email..."
         },
         "subtitle": "Subscribe for product drops, exclusive seasonal discounts, and member perks.",
-        "isEnabled": false,
+        "isEnabled": true,
         "displayOrder": 9
       }
     ],
-    "updatedAt": "2026-10-30T06:06:21.658Z",
+    "updatedAt": "2026-10-30T09:23:13.653Z",
     "heroSlider": {
       "slides": [
         {
-          "id": "slide_06_fitness",
-          "badge": "High Endurance",
-          "heading": "Engineered for Peak Athletic Agility",
-          "ctaLabel": "Shop Fitness",
-          "isActive": true,
-          "textColor": "#FFFFFF",
-          "subheading": "PERFORMANCE GEAR",
-          "description": "Ergonomic resistance training systems, speed jump ropes, and high-tensile recovery mobility gear.",
-          "displayOrder": 1,
-          "overlayColor": "#0B0F19",
-          "buttonBgColor": "#EF4444",
-          "textAlignment": "center",
-          "ctaDestination": "/categories/sports-fitness",
-          "mobileImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80",
-          "overlayOpacity": 45,
-          "buttonTextColor": "#FFFFFF",
-          "desktopImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80"
-        },
-        {
-          "id": "slide_05_apparel",
-          "badge": "Artisanal",
-          "heading": "Timeless Handwoven Festive & Ethnic Wear",
-          "ctaLabel": "Explore Collection",
-          "isActive": true,
-          "textColor": "#FAFAF9",
-          "subheading": "HERITAGE TEXTILES",
-          "description": "Breathable organic linen kurtas, raw tussar silk stoles, and contemporary artisanal silhouettes.",
-          "displayOrder": 2,
-          "overlayColor": "#1C1917",
-          "buttonBgColor": "#C28E5C",
-          "textAlignment": "left",
-          "ctaDestination": "/categories/apparel-ethnic-wear",
-          "mobileImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80",
-          "overlayOpacity": 40,
-          "buttonTextColor": "#FFFFFF",
-          "desktopImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1600&q=80"
-        },
-        {
-          "id": "slide_04_wellness",
-          "badge": "100% Certified Organic",
-          "heading": "Pure Ayurvedic Botanics & Clean Radiance",
-          "ctaLabel": "Shop Clean Beauty",
-          "isActive": true,
-          "textColor": "#FFFFFF",
-          "subheading": "HOLISTIC BEAUTY",
-          "description": "Cold-pressed herbal elixirs, organic saffron facial serums, and restorative therapeutic botanicals.",
-          "displayOrder": 3,
-          "overlayColor": "#111827",
-          "buttonBgColor": "#10B981",
-          "textAlignment": "right",
-          "ctaDestination": "/categories/health-ayurvedic-wellness",
-          "mobileImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=800&q=80",
-          "overlayOpacity": 50,
-          "buttonTextColor": "#FFFFFF",
-          "desktopImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=1600&q=80"
-        },
-        {
-          "id": "slide_03_home",
-          "badge": "Eco-Conscious",
-          "heading": "Artisanal Living & Sustainable Kitchenware",
-          "ctaLabel": "Discover Living",
+          "id": "slide_01_audio",
+          "badge": "New Release",
+          "heading": "Immersive Sound Engineered for Audiophiles",
+          "ctaLabel": "Explore Audio Gear",
           "isActive": true,
           "textColor": "#F9FAFB",
-          "subheading": "HEIRLOOM CRAFT",
-          "description": "Hand-hammered pure copper cookware, natural stoneware, and slow-crafted home decor essentials.",
-          "displayOrder": 4,
-          "overlayColor": "#060911",
-          "buttonBgColor": "#C28E5C",
+          "subheading": "FLAGSHIP ACOUSTICS",
+          "description": "Studio-grade active noise cancellation with 40mm titanium drivers and 60-hour lossless playback.",
+          "displayOrder": 1,
+          "overlayColor": "#0B0F19",
+          "buttonBgColor": "#10B981",
           "textAlignment": "left",
-          "ctaDestination": "/categories/home-kitchen-living",
-          "mobileImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80",
-          "overlayOpacity": 35,
+          "ctaDestination": "/categories/electronics-audio",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 45,
           "buttonTextColor": "#FFFFFF",
-          "desktopImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1600&q=80"
+          "desktopImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80"
         },
         {
           "id": "slide_02_wearables",
@@ -812,7 +758,7 @@
           "textColor": "#FFFFFF",
           "subheading": "SMART HOROLOGY",
           "description": "Continuous SpO2, HRV tracking, aerospace-grade titanium chassis, and sapphire crystal display.",
-          "displayOrder": 5,
+          "displayOrder": 2,
           "overlayColor": "#0B0F19",
           "buttonBgColor": "#3B82F6",
           "textAlignment": "center",
@@ -823,23 +769,80 @@
           "desktopImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1600&q=80"
         },
         {
-          "id": "slide_01_audio",
-          "badge": "New Release",
-          "heading": "Immersive Sound Engineered for Audiophiles",
-          "ctaLabel": "Explore Audio Gear",
+          "id": "slide_03_home",
+          "badge": "Eco-Conscious",
+          "heading": "Artisanal Living & Sustainable Kitchenware",
+          "ctaLabel": "Discover Living",
           "isActive": true,
           "textColor": "#F9FAFB",
-          "subheading": "FLAGSHIP ACOUSTICS",
-          "description": "Studio-grade active noise cancellation with 40mm titanium drivers and 60-hour lossless playback.",
+          "subheading": "HEIRLOOM CRAFT",
+          "description": "Hand-hammered pure copper cookware, natural stoneware, and slow-crafted home decor essentials.",
+          "displayOrder": 3,
+          "overlayColor": "#060911",
+          "buttonBgColor": "#C28E5C",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/home-kitchen-living",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 35,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_04_wellness",
+          "badge": "100% Certified Organic",
+          "heading": "Pure Ayurvedic Botanics & Clean Radiance",
+          "ctaLabel": "Shop Clean Beauty",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "HOLISTIC BEAUTY",
+          "description": "Cold-pressed herbal elixirs, organic saffron facial serums, and restorative therapeutic botanicals.",
+          "displayOrder": 4,
+          "overlayColor": "#111827",
+          "buttonBgColor": "#10B981",
+          "textAlignment": "right",
+          "ctaDestination": "/categories/health-ayurvedic-wellness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 50,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1608248597359-3351d38eb5e1?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_05_apparel",
+          "badge": "Artisanal",
+          "heading": "Timeless Handwoven Festive & Ethnic Wear",
+          "ctaLabel": "Explore Collection",
+          "isActive": true,
+          "textColor": "#FAFAF9",
+          "subheading": "HERITAGE TEXTILES",
+          "description": "Breathable organic linen kurtas, raw tussar silk stoles, and contemporary artisanal silhouettes.",
+          "displayOrder": 5,
+          "overlayColor": "#1C1917",
+          "buttonBgColor": "#C28E5C",
+          "textAlignment": "left",
+          "ctaDestination": "/categories/apparel-ethnic-wear",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80",
+          "overlayOpacity": 40,
+          "buttonTextColor": "#FFFFFF",
+          "desktopImageUrl": "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          "id": "slide_06_fitness",
+          "badge": "High Endurance",
+          "heading": "Engineered for Peak Athletic Agility",
+          "ctaLabel": "Shop Fitness",
+          "isActive": true,
+          "textColor": "#FFFFFF",
+          "subheading": "PERFORMANCE GEAR",
+          "description": "Ergonomic resistance training systems, speed jump ropes, and high-tensile recovery mobility gear.",
           "displayOrder": 6,
           "overlayColor": "#0B0F19",
-          "buttonBgColor": "#10B981",
-          "textAlignment": "left",
-          "ctaDestination": "/categories/electronics-audio",
-          "mobileImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80",
+          "buttonBgColor": "#EF4444",
+          "textAlignment": "center",
+          "ctaDestination": "/categories/sports-fitness",
+          "mobileImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80",
           "overlayOpacity": 45,
           "buttonTextColor": "#FFFFFF",
-          "desktopImageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80"
+          "desktopImageUrl": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1600&q=80"
         }
       ],
       "autoplay": true,
@@ -894,9 +897,9 @@
       "displayFont": "Plus Jakarta Sans",
       "headingWeight": "semibold"
     },
-    "publishedAt": "2026-10-30T06:06:21.658Z",
+    "publishedAt": "2026-10-30T09:23:13.653Z",
     "announcement": {
-      "text": "🚀 FESTIVE LAUNCH: Free Express Air Shipping On Orders Over ₹999!",
+      "text": "⚡ FESTIVE FLASH SALE: Flat ₹100 Off + Free Shipping across India! Use code FLAT100",
       "bgColor": "#10B981",
       "enabled": true,
       "linkUrl": "/collections/festive-specials",

@@ -448,6 +448,8 @@ export function sanitizeInput(input: any): any {
     return input
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
       .replace(/javascript:/gi, "")
+      .replace(/vbscript:/gi, "")
+      .replace(/data:text\/html/gi, "data:text/plain")
       .replace(/on\w+="[^"]*"/gi, "")
       .replace(/on\w+='[^']*'/gi, "");
   }

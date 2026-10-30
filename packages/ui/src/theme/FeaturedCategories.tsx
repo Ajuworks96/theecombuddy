@@ -101,3 +101,4 @@ export const FeaturedCategories: React.FC<FeaturedCategoriesProps> = ({
     </section>
   );
 };
+

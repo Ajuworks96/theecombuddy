@@ -81,11 +81,11 @@ export default async function HomePage() {
     },
     announcement: {
       enabled: true,
-      text: "🚀 FESTIVE LAUNCH: Free Express Air Shipping On Orders Over ₹999!",
+      text: "🚀 FESTIVE LAUNCH: Direct Self-Hosted Direct-to-Consumer Savings with Code WELCOME10",
       bgColor: "#10B981",
       textColor: "#FFFFFF",
       closeable: true,
-      linkUrl: "/collections/festive-specials",
+      linkUrl: "/products",
     },
     navigation: {
       menuItems: [

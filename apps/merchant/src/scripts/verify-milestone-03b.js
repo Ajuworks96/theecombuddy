@@ -499,6 +499,24 @@ async function runMilestone03BVerification() {
     }
   } catch (err) {
     recordTest("Suite 3", "Test 14-17: Media upload lifecycle", false, err.message);
+  } finally {
+    if (probeFileId) {
+      try {
+        await request(`/admin/uploads/${probeFileId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${adminToken}` },
+        }, BACKEND_URL);
+      } catch (_) {}
+    }
+    if (probeProductId) {
+      try {
+        await request(`/api/products/${probeProductId}`, {
+          method: "DELETE",
+          cookie: sessionCookie,
+        });
+      } catch (_) {}
+      probeProductId = "";
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -569,6 +587,16 @@ async function runMilestone03BVerification() {
     );
   } catch (err) {
     recordTest("Suite 4", "Test 18-21: Category taxonomy CRUD", false, err.message);
+  } finally {
+    if (probeCategoryId) {
+      try {
+        await request(`/api/categories/${probeCategoryId}`, {
+          method: "DELETE",
+          cookie: sessionCookie,
+        });
+      } catch (_) {}
+      probeCategoryId = "";
+    }
   }
 
   // Collections CRUD
@@ -629,6 +657,16 @@ async function runMilestone03BVerification() {
     );
   } catch (err) {
     recordTest("Suite 4", "Test 22-25: Collections CRUD", false, err.message);
+  } finally {
+    if (probeCollectionId) {
+      try {
+        await request(`/api/collections/${probeCollectionId}`, {
+          method: "DELETE",
+          cookie: sessionCookie,
+        });
+      } catch (_) {}
+      probeCollectionId = "";
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -702,37 +740,39 @@ async function runMilestone03BVerification() {
       const origQty = targetItem.location_levels[0].stocked_quantity;
       const adjustQty = origQty + 5;
 
-      const adjustRes = await request("/api/inventory", {
-        method: "POST",
-        cookie: sessionCookie,
-        body: {
-          inventoryItemId: targetItem.id,
-          locationId: defaultLocationId,
-          quantity: adjustQty,
-        },
-      });
+      try {
+        const adjustRes = await request("/api/inventory", {
+          method: "POST",
+          cookie: sessionCookie,
+          body: {
+            inventoryItemId: targetItem.id,
+            locationId: defaultLocationId,
+            quantity: adjustQty,
+          },
+        });
 
-      const updatedLevel = adjustRes.data?.inventory_item?.location_levels?.find(
-        (l) => l.location_id === defaultLocationId
-      );
+        const updatedLevel = adjustRes.data?.inventory_item?.location_levels?.find(
+          (l) => l.location_id === defaultLocationId
+        );
 
-      recordTest(
-        "Suite 5",
-        "Test 31: POST /api/inventory updates stocked quantity on location level",
-        adjustRes.status === 200,
-        `Item: ${targetItem.sku}, Adjusted: ${origQty} -> ${adjustQty}`
-      );
-
-      // Restore original quantity
-      await request("/api/inventory", {
-        method: "POST",
-        cookie: sessionCookie,
-        body: {
-          inventoryItemId: targetItem.id,
-          locationId: defaultLocationId,
-          quantity: origQty,
-        },
-      });
+        recordTest(
+          "Suite 5",
+          "Test 31: POST /api/inventory updates stocked quantity on location level",
+          adjustRes.status === 200,
+          `Item: ${targetItem.sku}, Adjusted: ${origQty} -> ${adjustQty}`
+        );
+      } finally {
+        // Restore original quantity
+        await request("/api/inventory", {
+          method: "POST",
+          cookie: sessionCookie,
+          body: {
+            inventoryItemId: targetItem.id,
+            locationId: defaultLocationId,
+            quantity: origQty,
+          },
+        });
+      }
     }
   } catch (err) {
     recordTest("Suite 5", "Test 26-31: Inventory & stock control", false, err.message);

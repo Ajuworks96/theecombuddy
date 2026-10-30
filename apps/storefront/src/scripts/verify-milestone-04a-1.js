@@ -12,6 +12,8 @@
  * 7. Search, SEO, canonical URLs, heading hierarchy & security audit
  */
 
+const fs = require("fs");
+const path = require("path");
 const http = require("http");
 const https = require("https");
 const { Client } = require("pg");
@@ -307,30 +309,42 @@ async function runSuite() {
 
     // 3. Newsletter accepts valid submission with consent
     const testEmail = `verified.subscriber.${Date.now()}@example.com`;
-    const validSub = await request("/api/newsletter", {
-      method: "POST",
-      body: { email: testEmail, consent: true, source: "qa_verification" },
-    });
+    try {
+      const validSub = await request("/api/newsletter", {
+        method: "POST",
+        body: { email: testEmail, consent: true, source: "qa_verification" },
+      });
 
-    recordTest(
-      "Suite 4",
-      "Test 13: POST /api/newsletter securely records subscription with HTTP 201",
-      validSub.status === 201 && validSub.data?.success === true,
-      `Status: ${validSub.status}, Message: '${validSub.data?.message}'`
-    );
+      recordTest(
+        "Suite 4",
+        "Test 13: POST /api/newsletter securely records subscription with HTTP 201",
+        validSub.status === 201 && validSub.data?.success === true,
+        `Status: ${validSub.status}, Message: '${validSub.data?.message}'`
+      );
 
-    // 4. Newsletter handles duplicate email idempotently with HTTP 200
-    const dupSub = await request("/api/newsletter", {
-      method: "POST",
-      body: { email: testEmail, consent: true },
-    });
+      // 4. Newsletter handles duplicate email idempotently with HTTP 200
+      const dupSub = await request("/api/newsletter", {
+        method: "POST",
+        body: { email: testEmail, consent: true },
+      });
 
-    recordTest(
-      "Suite 4",
-      "Test 14: POST /api/newsletter handles duplicate submission idempotently with HTTP 200",
-      dupSub.status === 200 && dupSub.data?.success === true,
-      `Status: ${dupSub.status}, Message: '${dupSub.data?.message}'`
-    );
+      recordTest(
+        "Suite 4",
+        "Test 14: POST /api/newsletter handles duplicate submission idempotently with HTTP 200",
+        dupSub.status === 200 && dupSub.data?.success === true,
+        `Status: ${dupSub.status}, Message: '${dupSub.data?.message}'`
+      );
+    } finally {
+      try {
+        const subFile = path.join(__dirname, "..", "..", "data", "subscribers.json");
+        if (fs.existsSync(subFile)) {
+          const raw = fs.readFileSync(subFile, "utf8");
+          const list = JSON.parse(raw);
+          const filtered = list.filter((s) => !s.email.includes("verified.subscriber"));
+          fs.writeFileSync(subFile, JSON.stringify(filtered, null, 2), "utf8");
+        }
+      } catch {}
+    }
 
     // 5. Query public theme endpoint to check content claims
     const themeRes = await request(

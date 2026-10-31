@@ -9,6 +9,7 @@ interface HeaderProps {
   theme: PublicPublishedTheme;
   regions?: StoreRegion[];
   currentRegion?: StoreRegion;
+  cartItemCount?: number;
   onSelectRegion?: (region: StoreRegion) => void;
   onOpenSearch?: () => void;
 }
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   regions = [],
   currentRegion,
+  cartItemCount = 0,
   onSelectRegion,
   onOpenSearch,
 }) => {
@@ -226,13 +228,17 @@ export const Header: React.FC<HeaderProps> = ({
                 <a
                   href="/cart"
                   className="relative p-2 rounded-[var(--theme-radius)] text-[var(--header-text)] hover:bg-[var(--surface-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] transition-colors"
-                  aria-label="Shopping bag"
+                  aria-label={`Shopping bag (${cartItemCount} items)`}
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
-                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[var(--brand-primary)] text-white text-[10px] font-bold flex items-center justify-center">
-                    0
+                  <span
+                    className={`absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-[var(--brand-primary)] text-white text-[10px] font-bold flex items-center justify-center transition-all ${
+                      cartItemCount > 0 ? "scale-100 ring-2 ring-[var(--surface-base)]" : "scale-90 opacity-60"
+                    }`}
+                  >
+                    {cartItemCount}
                   </span>
                 </a>
               )}
@@ -248,6 +254,7 @@ export const Header: React.FC<HeaderProps> = ({
         theme={theme}
         regions={regions}
         currentRegion={currentRegion}
+        cartItemCount={cartItemCount}
         onSelectRegion={onSelectRegion}
         onOpenSearch={onOpenSearch}
       />

@@ -9,7 +9,8 @@
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "verify:04a": "node src/scripts/verify-milestone-04a.js",
-    "verify:04a-1": "node src/scripts/verify-milestone-04a-1.js"
+    "verify:04a-1": "node src/scripts/verify-milestone-04a-1.js",
+    "verify:04b": "node src/scripts/verify-milestone-04b.js"
   },
   "dependencies": {
     "@the-ecom-buddy/types": "*",

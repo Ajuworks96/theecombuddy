@@ -20,6 +20,7 @@ export interface StorefrontThemeRendererProps {
   categories?: StoreCategory[];
   regions?: StoreRegion[];
   currentRegion?: StoreRegion;
+  cartItemCount?: number;
   onSelectRegion?: (region: StoreRegion) => void;
   isMerchantPreview?: boolean;
 }
@@ -30,6 +31,7 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
   categories = [],
   regions = [],
   currentRegion,
+  cartItemCount = 0,
   onSelectRegion,
   isMerchantPreview = false,
 }) => {
@@ -161,6 +163,7 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
         theme={theme}
         regions={regions}
         currentRegion={currentRegion}
+        cartItemCount={cartItemCount}
         onSelectRegion={onSelectRegion}
         onOpenSearch={() => setIsSearchOpen(true)}
       />
@@ -186,7 +189,15 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
             onClick={(e) => e.stopPropagation()}
           >
             {/* Search Input Bar */}
-            <div className="p-4 border-b border-[var(--border-subtle)] flex items-center gap-3">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (searchQuery.trim()) {
+                  window.location.href = `/search?q=${encodeURIComponent(searchQuery.trim())}`;
+                }
+              }}
+              className="p-4 border-b border-[var(--border-subtle)] flex items-center gap-3"
+            >
               <svg className="w-5 h-5 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -211,7 +222,7 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </div>
+            </form>
 
             {/* Results Area */}
             <div className="flex-1 overflow-y-auto p-4">
@@ -267,6 +278,18 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
                       </div>
                     </a>
                   ))}
+                  {searchResults.length > 5 && (
+                    <div className="pt-2 text-center border-t border-[var(--border-subtle)]">
+                      <a
+                        href={`/search?q=${encodeURIComponent(searchQuery.trim())}`}
+                        onClick={() => setIsSearchOpen(false)}
+                        className="text-xs font-bold text-[var(--brand-primary)] hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>View all {searchResults.length} results on search page</span>
+                        <span>&rarr;</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

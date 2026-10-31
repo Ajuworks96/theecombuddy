@@ -10,6 +10,7 @@ interface MobileNavDrawerProps {
   theme: PublicPublishedTheme;
   regions?: StoreRegion[];
   currentRegion?: StoreRegion;
+  cartItemCount?: number;
   onSelectRegion?: (region: StoreRegion) => void;
   onOpenSearch?: () => void;
 }
@@ -20,6 +21,7 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
   theme,
   regions = [],
   currentRegion,
+  cartItemCount = 0,
   onSelectRegion,
   onOpenSearch,
 }) => {

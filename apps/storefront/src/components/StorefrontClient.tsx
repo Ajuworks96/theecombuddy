@@ -8,6 +8,7 @@ import {
   type StoreCategory,
   type StoreRegion,
 } from "@the-ecom-buddy/ui";
+import { CartProvider, useCart } from "../context/CartContext";
 
 interface StorefrontClientProps {
   theme: PublicPublishedTheme;
@@ -17,7 +18,7 @@ interface StorefrontClientProps {
   initialRegion?: StoreRegion;
 }
 
-export const StorefrontClient: React.FC<StorefrontClientProps> = ({
+const StorefrontClientContent: React.FC<StorefrontClientProps> = ({
   theme,
   initialProducts,
   categories,
@@ -29,6 +30,8 @@ export const StorefrontClient: React.FC<StorefrontClientProps> = ({
   );
   const [products, setProducts] = useState<StoreProduct[]>(initialProducts);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
+  const { itemCount } = useCart();
 
   const handleSelectRegion = async (region: StoreRegion) => {
     setCurrentRegion(region);
@@ -86,9 +89,17 @@ export const StorefrontClient: React.FC<StorefrontClientProps> = ({
         categories={categories}
         regions={regions}
         currentRegion={currentRegion}
+        cartItemCount={itemCount}
         onSelectRegion={handleSelectRegion}
       />
     </div>
   );
 };
 
+export const StorefrontClient: React.FC<StorefrontClientProps> = (props) => {
+  return (
+    <CartProvider currentRegion={props.initialRegion || props.regions[0]}>
+      <StorefrontClientContent {...props} />
+    </CartProvider>
+  );
+};

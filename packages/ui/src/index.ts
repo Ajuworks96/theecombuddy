@@ -192,4 +192,7 @@ export * from "./theme/EditorialStory";
 export * from "./theme/NewsletterSection";
 export * from "./theme/Footer";
 export * from "./theme/StorefrontThemeRenderer";
+export * from "./theme/ProductGallery";
+export * from "./theme/ProductInfo";
+export * from "./theme/ListingPageLayout";
 

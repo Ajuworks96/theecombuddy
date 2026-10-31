@@ -8,6 +8,7 @@ import {
   Footer,
   ProductGallery,
   ProductInfo,
+  CartDrawer,
   type StoreProduct,
   type StoreRegion,
   type StoreVariant,
@@ -47,7 +48,18 @@ const ProductDetailContent: React.FC<ProductDetailClientProps> = ({
   const [inventoryMap, setInventoryMap] = useState(initialInventory);
   const [isUpdatingRegion, setIsUpdatingRegion] = useState(false);
 
-  const { addToCart, isAdding, itemCount } = useCart();
+  const {
+    cart,
+    addToCart,
+    isAdding,
+    itemCount,
+    isCartDrawerOpen,
+    openCartDrawer,
+    closeCartDrawer,
+    updateItemQuantity,
+    removeItem,
+    isMutating,
+  } = useCart();
 
   const presetId = theme.presetId || "crescendo";
   const cardStyle = theme.styling?.cardStyle || "bordered";
@@ -124,6 +136,7 @@ const ProductDetailContent: React.FC<ProductDetailClientProps> = ({
           regions={regions}
           currentRegion={currentRegion}
           cartItemCount={itemCount}
+          onOpenCartDrawer={openCartDrawer}
           onSelectRegion={handleSelectRegion}
         />
 
@@ -235,6 +248,16 @@ const ProductDetailContent: React.FC<ProductDetailClientProps> = ({
         {/* Footer */}
         <Footer theme={theme} />
       </div>
+
+      <CartDrawer
+        isOpen={isCartDrawerOpen}
+        onClose={closeCartDrawer}
+        cart={cart}
+        onUpdateQuantity={updateItemQuantity}
+        onRemoveItem={removeItem}
+        isMutating={isMutating}
+        theme={theme}
+      />
     </ThemeRoot>
   );
 };
@@ -246,3 +269,4 @@ export const ProductDetailClient: React.FC<ProductDetailClientProps> = (props) =
     </CartProvider>
   );
 };
+

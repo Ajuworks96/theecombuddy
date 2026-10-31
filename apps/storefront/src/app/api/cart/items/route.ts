@@ -65,3 +65,92 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const { cart_id, line_id, quantity } = body || {};
+
+    if (!cart_id || typeof cart_id !== "string") {
+      return NextResponse.json({ error: "cart_id is required" }, { status: 400 });
+    }
+
+    if (!line_id || typeof line_id !== "string") {
+      return NextResponse.json({ error: "line_id is required" }, { status: 400 });
+    }
+
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty < 1 || qty > 100) {
+      return NextResponse.json(
+        { error: "Quantity must be a positive integer between 1 and 100" },
+        { status: 400 }
+      );
+    }
+
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cart_id)}/line-items/${encodeURIComponent(line_id)}`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ quantity: qty }),
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: json.message || "Failed to update item quantity" },
+        { status: res.status }
+      );
+    }
+
+    return NextResponse.json({ cart: json.cart }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Line item update failed" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const { searchParams } = new URL(req.url);
+    const cart_id = body.cart_id || searchParams.get("cart_id");
+    const line_id = body.line_id || searchParams.get("line_id");
+
+    if (!cart_id || typeof cart_id !== "string") {
+      return NextResponse.json({ error: "cart_id is required" }, { status: 400 });
+    }
+
+    if (!line_id || typeof line_id !== "string") {
+      return NextResponse.json({ error: "line_id is required" }, { status: 400 });
+    }
+
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cart_id)}/line-items/${encodeURIComponent(line_id)}`,
+      {
+        method: "DELETE",
+        headers,
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: json.message || "Failed to remove item" },
+        { status: res.status }
+      );
+    }
+
+    return NextResponse.json({ cart: json.cart || json.parent || null }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Line item deletion failed" },
+      { status: 500 }
+    );
+  }
+}
+
+

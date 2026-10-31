@@ -18,6 +18,7 @@ interface ListingPageLayoutProps {
   regions?: StoreRegion[];
   currentRegion?: StoreRegion;
   cartItemCount?: number;
+  onOpenCartDrawer?: () => void;
   onSelectRegion?: (region: StoreRegion) => void;
   categoryPills?: Array<{ label: string; href: string; isActive?: boolean }>;
   initialQuery?: string;
@@ -35,6 +36,7 @@ export const ListingPageLayout: React.FC<ListingPageLayoutProps> = ({
   regions = [],
   currentRegion,
   cartItemCount = 0,
+  onOpenCartDrawer,
   onSelectRegion,
   categoryPills = [],
   initialQuery = "",
@@ -151,6 +153,7 @@ export const ListingPageLayout: React.FC<ListingPageLayoutProps> = ({
           regions={regions}
           currentRegion={currentRegion}
           cartItemCount={cartItemCount}
+          onOpenCartDrawer={onOpenCartDrawer}
           onSelectRegion={onSelectRegion}
         />
 
@@ -539,3 +542,4 @@ export const ListingPageLayout: React.FC<ListingPageLayoutProps> = ({
     </ThemeRoot>
   );
 };
+

@@ -493,3 +493,259 @@ export async function addItemToCart(
     return { cart: null, error: err.message || "Network error adding item" };
   }
 }
+
+export async function updateCart(
+  cartId: string,
+  data: {
+    region_id?: string;
+    email?: string;
+    shipping_address?: any;
+    billing_address?: any;
+  }
+): Promise<{ cart: StoreCart | null; error?: string }> {
+  try {
+    const res = await fetch(`${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cartId)}`, {
+      method: "POST",
+      headers: defaultHeaders,
+      body: JSON.stringify(data),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { cart: null, error: json.message || "Failed to update cart" };
+    }
+    return { cart: json.cart || null };
+  } catch (err: any) {
+    return { cart: null, error: err.message || "Network error updating cart" };
+  }
+}
+
+export async function updateCartLineItem(
+  cartId: string,
+  lineId: string,
+  quantity: number
+): Promise<{ cart: StoreCart | null; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cartId)}/line-items/${encodeURIComponent(lineId)}`,
+      {
+        method: "POST",
+        headers: defaultHeaders,
+        body: JSON.stringify({ quantity }),
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { cart: null, error: json.message || "Failed to update item quantity" };
+    }
+    return { cart: json.cart || null };
+  } catch (err: any) {
+    return { cart: null, error: err.message || "Network error updating item" };
+  }
+}
+
+export async function deleteCartLineItem(
+  cartId: string,
+  lineId: string
+): Promise<{ cart: StoreCart | null; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cartId)}/line-items/${encodeURIComponent(lineId)}`,
+      {
+        method: "DELETE",
+        headers: defaultHeaders,
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { cart: null, error: json.message || "Failed to remove item" };
+    }
+    // Medusa returns either parent cart or { deleted: true, parent: cart }
+    return { cart: json.cart || json.parent || null };
+  } catch (err: any) {
+    return { cart: null, error: err.message || "Network error removing item" };
+  }
+}
+
+export async function applyPromotionToCart(
+  cartId: string,
+  code: string
+): Promise<{ cart: StoreCart | null; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cartId)}/promotions`,
+      {
+        method: "POST",
+        headers: defaultHeaders,
+        body: JSON.stringify({ promo_codes: [code] }),
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { cart: null, error: json.message || "Invalid or expired promotion code" };
+    }
+    return { cart: json.cart || null };
+  } catch (err: any) {
+    return { cart: null, error: err.message || "Network error applying discount" };
+  }
+}
+
+export async function removePromotionFromCart(
+  cartId: string,
+  code: string
+): Promise<{ cart: StoreCart | null; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cartId)}/promotions`,
+      {
+        method: "DELETE",
+        headers: defaultHeaders,
+        body: JSON.stringify({ promo_codes: [code] }),
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { cart: null, error: json.message || "Failed to remove promotion" };
+    }
+    return { cart: json.cart || null };
+  } catch (err: any) {
+    return { cart: null, error: err.message || "Network error removing discount" };
+  }
+}
+
+export async function getCartShippingOptions(
+  cartId: string
+): Promise<{ shipping_options: any[]; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/shipping-options?cart_id=${encodeURIComponent(cartId)}`,
+      {
+        headers: defaultHeaders,
+        cache: "no-store",
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { shipping_options: [], error: json.message || "Failed to load shipping options" };
+    }
+    return { shipping_options: json.shipping_options || [] };
+  } catch (err: any) {
+    return { shipping_options: [], error: err.message || "Network error loading shipping options" };
+  }
+}
+
+export async function setCartShippingMethod(
+  cartId: string,
+  optionId: string
+): Promise<{ cart: StoreCart | null; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cartId)}/shipping-methods`,
+      {
+        method: "POST",
+        headers: defaultHeaders,
+        body: JSON.stringify({ option_id: optionId }),
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { cart: null, error: json.message || "Failed to set shipping method" };
+    }
+    return { cart: json.cart || null };
+  } catch (err: any) {
+    return { cart: null, error: err.message || "Network error setting shipping method" };
+  }
+}
+
+export async function createCartPaymentCollection(
+  cartId: string
+): Promise<{ payment_collection: any | null; error?: string }> {
+  try {
+    const res = await fetch(`${MEDUSA_BACKEND_URL}/store/payment-collections`, {
+      method: "POST",
+      headers: defaultHeaders,
+      body: JSON.stringify({ cart_id: cartId }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { payment_collection: null, error: json.message || "Failed to initialize payment" };
+    }
+    return { payment_collection: json.payment_collection || null };
+  } catch (err: any) {
+    return { payment_collection: null, error: err.message || "Network error initializing payment" };
+  }
+}
+
+export async function createCartPaymentSession(
+  paymentCollectionId: string,
+  providerId: string
+): Promise<{ payment_collection: any | null; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/payment-collections/${encodeURIComponent(paymentCollectionId)}/payment-sessions`,
+      {
+        method: "POST",
+        headers: defaultHeaders,
+        body: JSON.stringify({ provider_id: providerId }),
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { payment_collection: null, error: json.message || "Failed to create payment session" };
+    }
+    return { payment_collection: json.payment_collection || null };
+  } catch (err: any) {
+    return { payment_collection: null, error: err.message || "Network error creating payment session" };
+  }
+}
+
+export async function completeCartOrder(
+  cartId: string
+): Promise<{ order: any | null; type?: string; error?: string }> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cartId)}/complete`,
+      {
+        method: "POST",
+        headers: defaultHeaders,
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      return { order: null, error: json.message || "Failed to complete order" };
+    }
+    return { order: json.order || null, type: json.type };
+  } catch (err: any) {
+    return { order: null, error: err.message || "Network error completing order" };
+  }
+}
+
+export async function getStoreOrder(
+  orderId: string
+): Promise<any | null> {
+  try {
+    const res = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/orders/${encodeURIComponent(orderId)}?fields=*items,*shipping_address,*billing_address,*shipping_methods,*payment_collections,*payment_collections.payments`,
+      {
+        headers: defaultHeaders,
+        cache: "no-store",
+      }
+    );
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.order || null;
+  } catch {
+    return null;
+  }
+}
+

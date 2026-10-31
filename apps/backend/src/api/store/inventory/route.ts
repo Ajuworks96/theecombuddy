@@ -34,6 +34,98 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       });
     }
 
+    // Try Medusa official remote query first with sales-channel / publishable key scoping
+    try {
+      const remoteQuery =
+        req.scope.resolve(ContainerRegistrationKeys.REMOTE_QUERY, { allowUnregistered: true }) ||
+        req.scope.resolve("remoteQuery", { allowUnregistered: true });
+
+      if (remoteQuery) {
+        const filters: Record<string, any> = {};
+        if (variantIds.length > 0) {
+          filters.id = variantIds;
+        }
+        if (productId) {
+          filters.product_id = productId;
+        }
+
+        const queryObj: any = {
+          entryPoint: "product_variant",
+          fields: [
+            "id",
+            "sku",
+            "manage_inventory",
+            "allow_backorder",
+            "product_id",
+            "product.id",
+            "product.sales_channels.id",
+            "inventory_items.inventory_item_id",
+            "inventory_items.inventory.location_levels.stocked_quantity",
+            "inventory_items.inventory.location_levels.reserved_quantity",
+          ],
+          variables: {
+            filters,
+          },
+        };
+
+        const result = await remoteQuery(queryObj);
+        if (Array.isArray(result) && result.length > 0) {
+          // If publishable key sales channels exist on request context, verify scoping
+          const allowedSalesChannels = (req as any).publishable_key_context?.sales_channel_ids as string[] | undefined;
+
+          const inventory: Record<
+            string,
+            {
+              in_stock: boolean;
+              available_quantity: number;
+              manage_inventory: boolean;
+              allow_backorder: boolean;
+              sku: string;
+            }
+          > = {};
+
+          for (const variant of result) {
+            // Check sales channel scoping if publishable key context restricts channels
+            if (allowedSalesChannels && allowedSalesChannels.length > 0) {
+              const productChannels: string[] = (variant.product?.sales_channels || []).map((sc: any) => sc.id);
+              const isChannelAllowed = productChannels.some((scId) => allowedSalesChannels.includes(scId));
+              if (!isChannelAllowed) {
+                continue; // Variant not published in the active sales channel
+              }
+            }
+
+            let availableQuantity = 0;
+            const invItems = variant.inventory_items || [];
+            for (const item of invItems) {
+              const levels = item.inventory?.location_levels || [];
+              for (const lvl of levels) {
+                const stocked = Number(lvl.stocked_quantity || 0);
+                const reserved = Number(lvl.reserved_quantity || 0);
+                availableQuantity += Math.max(0, stocked - reserved);
+              }
+            }
+
+            const manageInventory = Boolean(variant.manage_inventory);
+            const allowBackorder = Boolean(variant.allow_backorder);
+            const inStock = !manageInventory || allowBackorder || availableQuantity > 0;
+
+            inventory[variant.id] = {
+              in_stock: inStock,
+              available_quantity: availableQuantity,
+              manage_inventory: manageInventory,
+              allow_backorder: allowBackorder,
+              sku: variant.sku || "",
+            };
+          }
+
+          return res.status(200).json({ inventory });
+        }
+      }
+    } catch (remoteQueryErr: any) {
+      console.warn("[store/inventory] remoteQuery fallback to pg:", remoteQueryErr?.message);
+    }
+
+    // Direct SQL fallback with sales-channel verification
     const pool = getFallbackPool();
 
     let queryText = "";
@@ -127,3 +219,5 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     });
   }
 };
+
+

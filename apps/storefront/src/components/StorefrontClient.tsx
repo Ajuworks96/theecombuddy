@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { PublicPublishedTheme } from "@the-ecom-buddy/types";
 import {
   StorefrontThemeRenderer,
+  CartDrawer,
   type StoreProduct,
   type StoreCategory,
   type StoreRegion,
@@ -31,7 +32,16 @@ const StorefrontClientContent: React.FC<StorefrontClientProps> = ({
   const [products, setProducts] = useState<StoreProduct[]>(initialProducts);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
 
-  const { itemCount } = useCart();
+  const {
+    cart,
+    itemCount,
+    isCartDrawerOpen,
+    openCartDrawer,
+    closeCartDrawer,
+    updateItemQuantity,
+    removeItem,
+    isMutating,
+  } = useCart();
 
   const handleSelectRegion = async (region: StoreRegion) => {
     setCurrentRegion(region);
@@ -90,7 +100,18 @@ const StorefrontClientContent: React.FC<StorefrontClientProps> = ({
         regions={regions}
         currentRegion={currentRegion}
         cartItemCount={itemCount}
+        onOpenCartDrawer={openCartDrawer}
         onSelectRegion={handleSelectRegion}
+      />
+
+      <CartDrawer
+        isOpen={isCartDrawerOpen}
+        onClose={closeCartDrawer}
+        cart={cart}
+        onUpdateQuantity={updateItemQuantity}
+        onRemoveItem={removeItem}
+        isMutating={isMutating}
+        theme={theme}
       />
     </div>
   );

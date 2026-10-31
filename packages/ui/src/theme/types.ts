@@ -121,6 +121,49 @@ export interface CartLineItem {
   product?: StoreProduct;
 }
 
+export interface StoreCartAddress {
+  id?: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  company?: string | null;
+  address_1?: string | null;
+  address_2?: string | null;
+  city?: string | null;
+  country_code?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
+  phone?: string | null;
+}
+
+export interface StoreShippingMethod {
+  id: string;
+  shipping_option_id?: string;
+  name?: string;
+  amount: number;
+  is_tax_inclusive?: boolean;
+  data?: any;
+}
+
+export interface StoreShippingOption {
+  id: string;
+  name: string;
+  price_type: string;
+  amount: number;
+  is_tax_inclusive?: boolean;
+  insufficient_inventory?: boolean;
+  calculated_price?: {
+    calculated_amount: number;
+    is_calculated_price_tax_inclusive?: boolean;
+  };
+}
+
+export interface StorePromotion {
+  id: string;
+  code: string;
+  type?: string;
+  is_automatic?: boolean;
+}
+
 export interface StoreCart {
   id: string;
   region_id: string;
@@ -131,9 +174,57 @@ export interface StoreCart {
   item_total?: number;
   subtotal?: number;
   discount_total?: number;
+  discount_subtotal?: number;
   shipping_total?: number;
+  shipping_subtotal?: number;
   tax_total?: number;
   total?: number;
+  original_total?: number;
+  shipping_address?: StoreCartAddress | null;
+  billing_address?: StoreCartAddress | null;
+  shipping_methods?: StoreShippingMethod[];
+  promotions?: StorePromotion[];
+  metadata?: Record<string, any> | null;
+  region?: StoreRegion;
+  completed_at?: string | null;
+}
+
+export interface StoreOrder {
+  id: string;
+  display_id: number;
+  status: string;
+  email: string;
+  currency_code: string;
+  created_at: string;
+  items?: Array<{
+    id: string;
+    title: string;
+    subtitle?: string | null;
+    thumbnail?: string | null;
+    quantity: number;
+    unit_price: number;
+    total?: number;
+    variant_id?: string;
+    variant?: StoreVariant;
+  }>;
+  shipping_address?: StoreCartAddress | null;
+  billing_address?: StoreCartAddress | null;
+  shipping_methods?: StoreShippingMethod[];
+  payment_collections?: Array<{
+    id: string;
+    status: string;
+    payments?: Array<{
+      id: string;
+      amount: number;
+      provider_id: string;
+      captured_at?: string | null;
+    }>;
+  }>;
+  subtotal?: number;
+  discount_total?: number;
+  shipping_total?: number;
+  tax_total?: number;
+  total: number;
 }
 
 export interface StorefrontThemeProps {
@@ -143,6 +234,7 @@ export interface StorefrontThemeProps {
   regions?: StoreRegion[];
   currentRegion?: StoreRegion;
   cartItemCount?: number;
+  onOpenCartDrawer?: () => void;
   onSelectRegion?: (region: StoreRegion) => void;
   isMerchantPreview?: boolean;
 }

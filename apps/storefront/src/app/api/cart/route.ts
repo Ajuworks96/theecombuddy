@@ -49,9 +49,34 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    let { region_id } = body || {};
+    let { cart_id, region_id, email, shipping_address, billing_address } = body || {};
 
-    // If region_id not provided, fetch default (India/INR)
+    // If cart_id provided, update existing cart
+    if (cart_id) {
+      const updatePayload: Record<string, any> = {};
+      if (region_id) updatePayload.region_id = region_id;
+      if (email) updatePayload.email = email;
+      if (shipping_address) updatePayload.shipping_address = shipping_address;
+      if (billing_address) updatePayload.billing_address = billing_address;
+
+      const res = await fetch(`${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cart_id)}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(updatePayload),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: json.message || "Failed to update cart" },
+          { status: res.status }
+        );
+      }
+
+      return NextResponse.json({ cart: json.cart }, { status: 200 });
+    }
+
+    // Otherwise, create new cart
     if (!region_id) {
       const regRes = await fetch(`${MEDUSA_BACKEND_URL}/store/regions`, { headers });
       if (regRes.ok) {
@@ -90,3 +115,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

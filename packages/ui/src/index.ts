@@ -195,4 +195,8 @@ export * from "./theme/StorefrontThemeRenderer";
 export * from "./theme/ProductGallery";
 export * from "./theme/ProductInfo";
 export * from "./theme/ListingPageLayout";
+export * from "./theme/CartDrawer";
+export * from "./theme/CartPageLayout";
+export * from "./theme/CheckoutLayout";
+export * from "./theme/OrderConfirmationLayout";
 

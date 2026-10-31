@@ -514,3 +514,4 @@ export const ProductInfo: React.FC<ProductInfoProps> = ({
     </div>
   );
 };
+

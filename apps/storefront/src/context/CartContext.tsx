@@ -7,16 +7,26 @@ interface CartContextValue {
   cart: StoreCart | null;
   itemCount: number;
   isAdding: boolean;
+  isMutating: boolean;
   cartError: string | null;
   successToast: string | null;
+  isCartDrawerOpen: boolean;
+  openCartDrawer: () => void;
+  closeCartDrawer: () => void;
   addToCart: (variant: StoreVariant, quantity: number) => Promise<boolean>;
+  updateItemQuantity: (lineId: string, quantity: number) => Promise<void>;
+  removeItem: (lineId: string) => Promise<void>;
+  applyPromotion: (code: string) => Promise<boolean>;
+  removePromotion: (code: string) => Promise<boolean>;
+  updateCartRegion: (newRegionId: string) => Promise<void>;
+  clearCart: () => void;
   clearCartError: () => void;
   clearSuccessToast: () => void;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
-const CART_STORAGE_KEY = "teb_cart_id";
+export const CART_STORAGE_KEY = "teb_cart_id";
 
 export const CartProvider: React.FC<{
   children: React.ReactNode;
@@ -24,8 +34,10 @@ export const CartProvider: React.FC<{
 }> = ({ children, currentRegion }) => {
   const [cart, setCart] = useState<StoreCart | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
 
   const regionId = currentRegion?.id;
 
@@ -36,25 +48,53 @@ export const CartProvider: React.FC<{
     async function initCart() {
       if (typeof window === "undefined") return;
 
-      const storedCartId = localStorage.getItem(CART_STORAGE_KEY);
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlCartId = urlParams.get("cart_id");
+      if (urlCartId) {
+        localStorage.setItem(CART_STORAGE_KEY, urlCartId);
+      }
+
+      const storedCartId = urlCartId || localStorage.getItem(CART_STORAGE_KEY);
       if (storedCartId) {
         try {
           const res = await fetch(`/api/cart?cart_id=${encodeURIComponent(storedCartId)}`);
           if (res.ok) {
             const data = await res.json();
             if (data.cart) {
-              // Check region consistency
-              if (regionId && data.cart.region_id !== regionId) {
-                // Region changed: create new cart for active region
+              // If cart is already completed, clear storage and initialize fresh
+              if (data.cart.completed_at) {
                 localStorage.removeItem(CART_STORAGE_KEY);
-              } else if (isMounted) {
+                return;
+              }
+
+              // Check region consistency: preserve cart by updating region on server
+              if (regionId && data.cart.region_id !== regionId) {
+                const updateRes = await fetch("/api/cart", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ cart_id: storedCartId, region_id: regionId }),
+                });
+
+                if (updateRes.ok) {
+                  const updateData = await updateRes.json();
+                  if (isMounted && updateData.cart) {
+                    setCart(updateData.cart);
+                    return;
+                  }
+                }
+              }
+
+              if (isMounted) {
                 setCart(data.cart);
                 return;
               }
             }
+          } else if (res.status === 404) {
+            // Expired or invalid cart in storage
+            localStorage.removeItem(CART_STORAGE_KEY);
           }
         } catch {
-          // Fall through to create new cart on demand
+          // Fall through
         }
       }
     }
@@ -66,6 +106,36 @@ export const CartProvider: React.FC<{
     };
   }, [regionId]);
 
+  // Market switching: update cart region safely without losing items
+  const updateCartRegion = useCallback(
+    async (newRegionId: string) => {
+      if (!newRegionId) return;
+      const activeCartId = cart?.id || (typeof window !== "undefined" ? localStorage.getItem(CART_STORAGE_KEY) : null);
+      if (!activeCartId) return;
+
+      setIsMutating(true);
+      try {
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cart_id: activeCartId, region_id: newRegionId }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.cart) {
+            setCart(data.cart);
+          }
+        }
+      } catch (err: any) {
+        console.warn("[CartContext] updateCartRegion error:", err.message);
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [cart]
+  );
+
   const addToCart = useCallback(
     async (variant: StoreVariant, quantity: number): Promise<boolean> => {
       if (!variant?.id || quantity < 1) return false;
@@ -76,8 +146,8 @@ export const CartProvider: React.FC<{
       try {
         let activeCartId = cart?.id || (typeof window !== "undefined" ? localStorage.getItem(CART_STORAGE_KEY) : null);
 
-        // If no active cart or cart region differs from current region, initialize new cart
-        if (!activeCartId || (regionId && cart?.region_id && cart.region_id !== regionId)) {
+        // If no active cart, initialize new cart
+        if (!activeCartId) {
           const createRes = await fetch("/api/cart", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -138,6 +208,152 @@ export const CartProvider: React.FC<{
     [cart, regionId]
   );
 
+  const updateItemQuantity = useCallback(
+    async (lineId: string, quantity: number) => {
+      const activeCartId = cart?.id || (typeof window !== "undefined" ? localStorage.getItem(CART_STORAGE_KEY) : null);
+      if (!activeCartId || !lineId || quantity < 1) return;
+
+      setIsMutating(true);
+      setCartError(null);
+
+      try {
+        const res = await fetch("/api/cart/items", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cart_id: activeCartId,
+            line_id: lineId,
+            quantity,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to update item quantity");
+        }
+
+        if (data.cart) {
+          setCart(data.cart);
+        }
+      } catch (err: any) {
+        setCartError(err.message || "Failed to update quantity");
+        setTimeout(() => setCartError(null), 4000);
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [cart]
+  );
+
+  const removeItem = useCallback(
+    async (lineId: string) => {
+      const activeCartId = cart?.id || (typeof window !== "undefined" ? localStorage.getItem(CART_STORAGE_KEY) : null);
+      if (!activeCartId || !lineId) return;
+
+      setIsMutating(true);
+      setCartError(null);
+
+      try {
+        const res = await fetch("/api/cart/items", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cart_id: activeCartId,
+            line_id: lineId,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to remove item");
+        }
+
+        if (data.cart) {
+          setCart(data.cart);
+        }
+      } catch (err: any) {
+        setCartError(err.message || "Failed to remove item");
+        setTimeout(() => setCartError(null), 4000);
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [cart]
+  );
+
+  const applyPromotion = useCallback(
+    async (code: string): Promise<boolean> => {
+      const activeCartId = cart?.id || (typeof window !== "undefined" ? localStorage.getItem(CART_STORAGE_KEY) : null);
+      if (!activeCartId || !code.trim()) return false;
+
+      setIsMutating(true);
+      try {
+        const res = await fetch("/api/cart/promotions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cart_id: activeCartId,
+            promo_code: code.trim(),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          return false;
+        }
+
+        if (data.cart) {
+          setCart(data.cart);
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [cart]
+  );
+
+  const removePromotion = useCallback(
+    async (code: string): Promise<boolean> => {
+      const activeCartId = cart?.id || (typeof window !== "undefined" ? localStorage.getItem(CART_STORAGE_KEY) : null);
+      if (!activeCartId || !code.trim()) return false;
+
+      setIsMutating(true);
+      try {
+        const res = await fetch("/api/cart/promotions", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cart_id: activeCartId,
+            promo_code: code.trim(),
+          }),
+        });
+
+        const data = await res.json();
+        if (data.cart) {
+          setCart(data.cart);
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        setIsMutating(false);
+      }
+    },
+    [cart]
+  );
+
+  const clearCart = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    }
+    setCart(null);
+  }, []);
+
   const itemCount = (cart?.items || []).reduce((acc, item) => acc + (item.quantity || 1), 0);
 
   return (
@@ -146,9 +362,19 @@ export const CartProvider: React.FC<{
         cart,
         itemCount,
         isAdding,
+        isMutating,
         cartError,
         successToast,
+        isCartDrawerOpen,
+        openCartDrawer: () => setIsCartDrawerOpen(true),
+        closeCartDrawer: () => setIsCartDrawerOpen(false),
         addToCart,
+        updateItemQuantity,
+        removeItem,
+        applyPromotion,
+        removePromotion,
+        updateCartRegion,
+        clearCart,
         clearCartError: () => setCartError(null),
         clearSuccessToast: () => setSuccessToast(null),
       }}

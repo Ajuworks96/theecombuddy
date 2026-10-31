@@ -10,6 +10,7 @@ interface HeaderProps {
   regions?: StoreRegion[];
   currentRegion?: StoreRegion;
   cartItemCount?: number;
+  onOpenCartDrawer?: () => void;
   onSelectRegion?: (region: StoreRegion) => void;
   onOpenSearch?: () => void;
 }
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   regions = [],
   currentRegion,
   cartItemCount = 0,
+  onOpenCartDrawer,
   onSelectRegion,
   onOpenSearch,
 }) => {
@@ -227,6 +229,12 @@ export const Header: React.FC<HeaderProps> = ({
               {navigation?.showCart && (
                 <a
                   href="/cart"
+                  onClick={(e) => {
+                    if (onOpenCartDrawer) {
+                      e.preventDefault();
+                      onOpenCartDrawer();
+                    }
+                  }}
                   className="relative p-2 rounded-[var(--theme-radius)] text-[var(--header-text)] hover:bg-[var(--surface-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] transition-colors"
                   aria-label={`Shopping bag (${cartItemCount} items)`}
                 >

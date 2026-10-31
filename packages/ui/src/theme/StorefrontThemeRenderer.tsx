@@ -21,6 +21,7 @@ export interface StorefrontThemeRendererProps {
   regions?: StoreRegion[];
   currentRegion?: StoreRegion;
   cartItemCount?: number;
+  onOpenCartDrawer?: () => void;
   onSelectRegion?: (region: StoreRegion) => void;
   isMerchantPreview?: boolean;
 }
@@ -32,6 +33,7 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
   regions = [],
   currentRegion,
   cartItemCount = 0,
+  onOpenCartDrawer,
   onSelectRegion,
   isMerchantPreview = false,
 }) => {
@@ -164,6 +166,7 @@ export const StorefrontThemeRenderer: React.FC<StorefrontThemeRendererProps> = (
         regions={regions}
         currentRegion={currentRegion}
         cartItemCount={cartItemCount}
+        onOpenCartDrawer={onOpenCartDrawer}
         onSelectRegion={onSelectRegion}
         onOpenSearch={() => setIsSearchOpen(true)}
       />

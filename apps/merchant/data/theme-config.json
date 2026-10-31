@@ -1,6 +1,6 @@
 {
   "draft": {
-    "id": "theme_cfg_v35_1793429329368",
+    "id": "theme_cfg_v40_1793440148892",
     "colors": {
       "footerBg": "#060911",
       "headerBg": "#0B0F19",
@@ -121,7 +121,7 @@
       "headerStyle": "sticky",
       "borderRadius": "sm"
     },
-    "version": 35,
+    "version": 40,
     "identity": {
       "logoUrl": "/images/logo.svg",
       "tagline": "Modern Lifestyle & Everyday Essentials",
@@ -273,7 +273,7 @@
         "displayOrder": 9
       }
     ],
-    "updatedAt": "2026-10-31T06:48:49.365Z",
+    "updatedAt": "2026-10-31T09:49:08.891Z",
     "heroSlider": {
       "slides": [
         {
@@ -443,7 +443,7 @@
       "displayFont": "Plus Jakarta Sans",
       "headingWeight": "semibold"
     },
-    "publishedAt": "2026-10-31T06:48:49.365Z",
+    "publishedAt": "2026-10-31T09:49:08.891Z",
     "announcement": {
       "text": "⚡ FESTIVE FLASH SALE: Flat ₹100 Off + Free Shipping across India! Use code FLAT100",
       "bgColor": "#10B981",
@@ -454,7 +454,7 @@
     }
   },
   "published": {
-    "id": "theme_cfg_v35_1793429329368",
+    "id": "theme_cfg_v40_1793440148892",
     "colors": {
       "footerBg": "#060911",
       "headerBg": "#0B0F19",
@@ -575,7 +575,7 @@
       "headerStyle": "sticky",
       "borderRadius": "sm"
     },
-    "version": 35,
+    "version": 40,
     "identity": {
       "logoUrl": "/images/logo.svg",
       "tagline": "Modern Lifestyle & Everyday Essentials",
@@ -727,7 +727,7 @@
         "displayOrder": 9
       }
     ],
-    "updatedAt": "2026-10-31T06:48:49.365Z",
+    "updatedAt": "2026-10-31T09:49:08.891Z",
     "heroSlider": {
       "slides": [
         {
@@ -897,7 +897,7 @@
       "displayFont": "Plus Jakarta Sans",
       "headingWeight": "semibold"
     },
-    "publishedAt": "2026-10-31T06:48:49.365Z",
+    "publishedAt": "2026-10-31T09:49:08.891Z",
     "announcement": {
       "text": "⚡ FESTIVE FLASH SALE: Flat ₹100 Off + Free Shipping across India! Use code FLAT100",
       "bgColor": "#10B981",

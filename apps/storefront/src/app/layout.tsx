@@ -1,6 +1,8 @@
 import React from "react";
 import type { Metadata } from "next";
 import { getPublishedTheme } from "@/lib/medusa-client";
+import { CustomerProvider } from "@/context/CustomerContext";
+import { CartProvider } from "@/context/CartContext";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -50,7 +52,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
-        {children}
+        <CustomerProvider>
+          <CartProvider>
+            {children}
+          </CartProvider>
+        </CustomerProvider>
       </body>
     </html>
   );

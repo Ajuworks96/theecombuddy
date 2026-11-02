@@ -1,11 +1,25 @@
 import { defineMiddlewares } from "@medusajs/framework/http";
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http";
 import crypto from "crypto";
+import { Pool } from "pg";
 
 const GUEST_ORDER_SECRET =
   process.env.GUEST_ORDER_SECRET ||
   process.env.JWT_SECRET ||
   "supersecret_ecom_buddy_jwt_token_development_only";
+
+let dbPool: Pool | null = null;
+function getDbPool() {
+  if (!dbPool) {
+    dbPool = new Pool({
+      connectionString:
+        process.env.DATABASE_URL ||
+        "postgres://postgres:password@localhost:5432/medusa_ecom_buddy",
+      max: 5,
+    });
+  }
+  return dbPool;
+}
 
 /**
  * Cryptographically verify an HMAC-SHA256 guest order access token
@@ -73,6 +87,7 @@ export function createGuestOrderToken(orderId: string, email: string, ttlSeconds
 
 /**
  * Middleware protecting GET /store/orders/:id against unauthorized guest enumeration
+ * and enforcing strict cross-customer order ownership isolation.
  */
 export default defineMiddlewares({
   routes: [
@@ -83,13 +98,53 @@ export default defineMiddlewares({
         async (req: MedusaRequest, res: MedusaResponse, next: any) => {
           const orderId = req.params.id;
 
-          // 1. Allow authenticated admin or customer sessions
+          // 1. Inspect authenticated session context
           const authContext = (req as any).auth_context;
-          if (authContext?.actor_id || authContext?.auth_identity_id) {
-            return next();
+          if (authContext) {
+            const actorType = authContext.actor_type;
+            const actorId = authContext.actor_id;
+
+            // Admin user sessions have merchant-wide order management authorization
+            if (actorType === "user" || (actorId && String(actorId).startsWith("usr_"))) {
+              return next();
+            }
+
+            // Customer sessions: strictly enforce customer ownership
+            if (actorType === "customer" || (actorId && String(actorId).startsWith("cus_"))) {
+              try {
+                const pool = getDbPool();
+                const orderCheck = await pool.query(
+                  'SELECT customer_id, email FROM public.order WHERE id = $1 AND deleted_at IS NULL',
+                  [orderId]
+                );
+
+                if (orderCheck.rows.length === 0) {
+                  return res.status(404).json({
+                    message: "Order record not found",
+                    type: "not_found",
+                  });
+                }
+
+                const orderOwnerId = orderCheck.rows[0].customer_id;
+                if (!orderOwnerId || orderOwnerId !== actorId) {
+                  return res.status(403).json({
+                    message: "Access denied: you do not have permission to access another customer's order",
+                    type: "forbidden",
+                  });
+                }
+
+                // Authenticated customer owns this order
+                return next();
+              } catch (dbErr: any) {
+                return res.status(500).json({
+                  message: "Failed to verify order ownership",
+                  type: "internal_error",
+                });
+              }
+            }
           }
 
-          // 2. Extract token from header or cookie
+          // 2. Guest access: Extract token from header or cookie
           const headerToken = req.headers["x-guest-order-token"] as string | undefined;
           let cookieToken: string | undefined;
 

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Fast cache check: Reject if already completed in memory/cache
-    const existingOrderId = getCompletedCartOrder(cart_id);
+    const existingOrderId = await getCompletedCartOrder(cart_id);
     if (existingOrderId) {
       return NextResponse.json(
         { error: "Cart has already been completed. Duplicate submission rejected." },

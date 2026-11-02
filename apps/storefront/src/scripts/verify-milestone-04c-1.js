@@ -342,11 +342,40 @@ async function main() {
       `Status: ${duplicateSubmission.status}, Error: '${duplicateSubmission.data?.error}'`
     );
 
-    // Clean up concurrency test order safely via soft-delete
+    // Clean up concurrency test order safely and maintain inventory invariants
     if (completedOrderId) {
+      const itemRows = await pg.query('SELECT item_id FROM order_item WHERE order_id = $1', [completedOrderId]);
+      const lineItemIds = itemRows.rows.map(r => r.item_id).filter(Boolean);
+      if (lineItemIds.length > 0) {
+        const resRows = await pg.query('SELECT DISTINCT inventory_item_id, location_id FROM reservation_item WHERE line_item_id = ANY($1)', [lineItemIds]);
+        await pg.query('UPDATE reservation_item SET deleted_at = NOW() WHERE line_item_id = ANY($1)', [lineItemIds]);
+        for (const row of resRows.rows) {
+          await pg.query(`
+            UPDATE inventory_level il
+            SET 
+              reserved_quantity = COALESCE((
+                SELECT SUM(ri.quantity)
+                FROM reservation_item ri
+                WHERE ri.inventory_item_id = il.inventory_item_id
+                  AND ri.location_id = il.location_id
+                  AND ri.deleted_at IS NULL
+              ), 0),
+              raw_reserved_quantity = jsonb_build_object(
+                'value', COALESCE((
+                  SELECT SUM(ri.quantity)
+                  FROM reservation_item ri
+                  WHERE ri.inventory_item_id = il.inventory_item_id
+                    AND ri.location_id = il.location_id
+                    AND ri.deleted_at IS NULL
+                ), 0)::text,
+                'precision', 20
+              )
+            WHERE il.inventory_item_id = $1 AND il.location_id = $2
+          `, [row.inventory_item_id, row.location_id]);
+        }
+        await pg.query('UPDATE order_line_item SET deleted_at = NOW() WHERE id = ANY($1)', [lineItemIds]);
+      }
       await pg.query('UPDATE "order" SET deleted_at = NOW(), status = \'canceled\', canceled_at = NOW() WHERE id = $1', [completedOrderId]);
-      await pg.query('UPDATE reservation_item SET deleted_at = NOW() WHERE line_item_id IN (SELECT item_id FROM order_item WHERE order_id = $1)', [completedOrderId]);
-      await pg.query('UPDATE order_line_item SET deleted_at = NOW() WHERE id IN (SELECT item_id FROM order_item WHERE order_id = $1)', [completedOrderId]);
     }
 
     // -------------------------------------------------------------------------

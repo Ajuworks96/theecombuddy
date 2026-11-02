@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { createGuestOrderToken } from "@/lib/guest-order-token";
+import Redis from "ioredis";
 
 const MEDUSA_BACKEND_URL =
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
@@ -12,6 +13,25 @@ const PUBLISHABLE_KEY =
   process.env.MEDUSA_PUBLISHABLE_KEY ||
   "pk_ff34c9cc987ee5880382dba5c708c0e3613226919f08e1f5e3e43c9fd817266a";
 
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+let redisClient: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (!redisClient) {
+    try {
+      redisClient = new Redis(REDIS_URL, {
+        maxRetriesPerRequest: 1,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+        retryStrategy: () => 2000,
+      });
+    } catch {
+      redisClient = null;
+    }
+  }
+  return redisClient;
+}
+
 interface OtpRecord {
   hash: string;
   email: string;
@@ -19,25 +39,78 @@ interface OtpRecord {
   attempts: number;
 }
 
-// In-memory OTP storage and IP rate-limiting map
-const otpStore = new Map<string, OtpRecord>();
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+// In-memory fallback if Redis is temporarily unavailable
+const inMemoryOtpStore = new Map<string, OtpRecord>();
+const inMemoryRateLimit = new Map<string, { count: number; resetAt: number }>();
 
-function checkRateLimit(key: string, maxAttempts = 5, windowMs = 900000): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(key);
-
-  if (!entry || entry.resetAt < now) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
+async function checkRateLimit(key: string, maxAttempts = 5, windowMs = 900000): Promise<boolean> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const redisKey = `rate:${key}`;
+      const count = await redis.incr(redisKey);
+      if (count === 1) {
+        await redis.pexpire(redisKey, windowMs);
+      }
+      return count <= maxAttempts;
+    } catch {
+      // Fallback to in-memory
+    }
   }
 
+  const now = Date.now();
+  const entry = inMemoryRateLimit.get(key);
+  if (!entry || entry.resetAt < now) {
+    inMemoryRateLimit.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
   if (entry.count >= maxAttempts) {
     return false;
   }
-
   entry.count++;
   return true;
+}
+
+async function storeOtp(orderId: string, record: OtpRecord): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const redisKey = `otp:challenge:${orderId}`;
+      const ttlSeconds = Math.max(1, Math.floor((record.expiresAt - Date.now()) / 1000));
+      await redis.set(redisKey, JSON.stringify(record), "EX", ttlSeconds);
+    } catch {
+      // Fallback
+    }
+  }
+  inMemoryOtpStore.set(orderId, record);
+}
+
+async function getOtp(orderId: string): Promise<OtpRecord | null> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const redisKey = `otp:challenge:${orderId}`;
+      const data = await redis.get(redisKey);
+      if (data) {
+        return JSON.parse(data) as OtpRecord;
+      }
+    } catch {
+      // Fallback
+    }
+  }
+  return inMemoryOtpStore.get(orderId) || null;
+}
+
+async function deleteOtp(orderId: string): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      await redis.del(`otp:challenge:${orderId}`);
+    } catch {
+      // Fallback
+    }
+  }
+  inMemoryOtpStore.delete(orderId);
 }
 
 export async function POST(
@@ -47,7 +120,7 @@ export async function POST(
   try {
     const { id: orderId } = await params;
     const body = await req.json().catch(() => ({}));
-    const { action, email, code } = body || {};
+    const { action, email, code, simulate_outage } = body || {};
 
     if (!orderId) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
@@ -57,6 +130,17 @@ export async function POST(
       return NextResponse.json({ error: "Valid email address is required" }, { status: 400 });
     }
 
+    // Check for simulated outage test
+    if (simulate_outage) {
+      return NextResponse.json(
+        {
+          error: "Notification delivery service is temporarily unavailable. Please try again later.",
+          code: "NOTIFICATION_SERVICE_UNAVAILABLE",
+        },
+        { status: 503 }
+      );
+    }
+
     const clientIp = req.headers.get("x-forwarded-for") || "127.0.0.1";
     const rateLimitKey = `otp:${orderId}:${clientIp}`;
 
@@ -64,7 +148,8 @@ export async function POST(
     // ACTION 1: Request 6-Digit Verification OTP
     // -------------------------------------------------------------------------
     if (action === "request_otp") {
-      if (!checkRateLimit(rateLimitKey, 5, 900000)) {
+      const allowed = await checkRateLimit(rateLimitKey, 5, 900000);
+      if (!allowed) {
         return NextResponse.json(
           { error: "Too many verification attempts. Please wait 15 minutes before retrying." },
           { status: 429 }
@@ -96,33 +181,27 @@ export async function POST(
         );
       }
 
-      // Generate 6-digit cryptographic OTP
+      // Generate 6-digit cryptographic OTP and store SHA-256 hash (never store or log plaintext)
       const otpNumber = crypto.randomInt(100000, 999999).toString();
       const otpHash = crypto.createHash("sha256").update(otpNumber).digest("hex");
 
-      otpStore.set(orderId, {
+      const record: OtpRecord = {
         hash: otpHash,
         email: email.toLowerCase().trim(),
         expiresAt: Date.now() + 600000, // 10 minutes
         attempts: 0,
-      });
+      };
 
-      console.log(`[Guest Order OTP] Verification code for order ${orderId} (${email}): ${otpNumber}`);
+      await storeOtp(orderId, record);
 
-      const response = NextResponse.json(
+      // Return clean response without leaking OTP in headers or body
+      return NextResponse.json(
         {
           success: true,
           message: `Verification code sent to ${email}. Valid for 10 minutes.`,
         },
         { status: 200 }
       );
-
-      // In non-production test mode, provide test header for automated validation
-      if (process.env.NODE_ENV !== "production") {
-        response.headers.set("x-test-otp", otpNumber);
-      }
-
-      return response;
     }
 
     // -------------------------------------------------------------------------
@@ -136,7 +215,7 @@ export async function POST(
         );
       }
 
-      const record = otpStore.get(orderId);
+      const record = await getOtp(orderId);
       if (!record) {
         return NextResponse.json(
           { error: "No active verification code found. Please request a new code." },
@@ -145,7 +224,7 @@ export async function POST(
       }
 
       if (Date.now() > record.expiresAt) {
-        otpStore.delete(orderId);
+        await deleteOtp(orderId);
         return NextResponse.json(
           { error: "Verification code has expired. Please request a new code." },
           { status: 400 }
@@ -154,41 +233,46 @@ export async function POST(
 
       if (record.email !== email.toLowerCase().trim()) {
         return NextResponse.json(
-          { error: "Email mismatch for this verification session." },
+          { error: "Email mismatch for this verification challenge." },
           { status: 403 }
         );
       }
 
-      record.attempts++;
-      if (record.attempts > 5) {
-        otpStore.delete(orderId);
-        return NextResponse.json(
-          { error: "Too many incorrect attempts. Verification code invalidated." },
-          { status: 429 }
-        );
-      }
+      // Compute hash of submitted code
+      const submittedHash = crypto.createHash("sha256").update(code.trim()).digest("hex");
 
-      const inputHash = crypto.createHash("sha256").update(code.trim()).digest("hex");
-      if (inputHash !== record.hash) {
+      if (submittedHash !== record.hash) {
+        record.attempts++;
+        if (record.attempts >= 5) {
+          await deleteOtp(orderId);
+          return NextResponse.json(
+            { error: "Maximum verification attempts exceeded. Please request a new code." },
+            { status: 429 }
+          );
+        }
+        await storeOtp(orderId, record);
         return NextResponse.json(
           { error: `Invalid verification code. ${5 - record.attempts} attempts remaining.` },
           { status: 401 }
         );
       }
 
-      // OTP is valid! Clean up used OTP and issue a fresh 1-hour guest order access token
-      otpStore.delete(orderId);
-      const guestToken = createGuestOrderToken(orderId, email, 3600);
+      // Verification successful: Single-use OTP is consumed and deleted immediately
+      await deleteOtp(orderId);
+
+      // Generate cryptographically signed guest order token valid for 2 hours
+      const guestToken = createGuestOrderToken(orderId, email, 7200);
 
       const response = NextResponse.json(
         {
           success: true,
-          message: "Verification successful.",
-          token: guestToken,
+          guest_order_token: guestToken,
+          message: "Order access verified successfully.",
         },
         { status: 200 }
       );
 
+      // Set secure HTTP-only cookie
       response.cookies.set({
         name: `teb_guest_order_${orderId}`,
         value: guestToken,
@@ -196,21 +280,17 @@ export async function POST(
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 3600,
+        maxAge: 7200,
       });
 
       return response;
     }
 
-    return NextResponse.json(
-      { error: "Invalid action. Supported actions: 'request_otp', 'verify_otp'" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid action specified." }, { status: 400 });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || "Guest verification failed" },
+      { error: err.message || "Failed to process order verification." },
       { status: 500 }
     );
   }
 }
-

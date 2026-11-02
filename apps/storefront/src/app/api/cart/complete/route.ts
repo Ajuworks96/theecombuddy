@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { acquireCartLock, releaseCartLock, markCartCompleted, getCompletedCartOrder } from "@/lib/cart-lock";
+import { createGuestOrderToken } from "@/lib/guest-order-token";
 
 const MEDUSA_BACKEND_URL =
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
@@ -16,6 +18,8 @@ const headers = {
 };
 
 export async function POST(req: NextRequest) {
+  let cartIdToUnlock: string | null = null;
+
   try {
     const body = await req.json().catch(() => ({}));
     const { cart_id } = body || {};
@@ -24,7 +28,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cart_id is required" }, { status: 400 });
     }
 
-    // Pre-check: prevent duplicate submissions if cart is already completed
+    // 1. Fast cache check: Reject if already completed in memory/cache
+    const existingOrderId = getCompletedCartOrder(cart_id);
+    if (existingOrderId) {
+      return NextResponse.json(
+        { error: "Cart has already been completed. Duplicate submission rejected." },
+        { status: 400 }
+      );
+    }
+
+    // 2. Concurrency Lock: Prevent simultaneous double-click submissions
+    const lockAcquired = await acquireCartLock(cart_id, 25000);
+    if (!lockAcquired) {
+      return NextResponse.json(
+        { error: "Order completion is already in progress for this cart. Please wait." },
+        { status: 409 }
+      );
+    }
+    cartIdToUnlock = cart_id;
+
+    // 3. Pre-check: Verify Medusa state if cart.completed_at is already set
     try {
       const checkRes = await fetch(
         `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cart_id)}`,
@@ -43,11 +66,15 @@ export async function POST(req: NextRequest) {
       console.warn("[cart/complete] Pre-check warning:", checkErr);
     }
 
+    // 4. Invoke Medusa complete workflow with Idempotency-Key
     const res = await fetch(
       `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cart_id)}/complete`,
       {
         method: "POST",
-        headers,
+        headers: {
+          ...headers,
+          "Idempotency-Key": `complete_cart_${cart_id}`,
+        },
       }
     );
 
@@ -69,17 +96,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(
+    const order = json.order;
+    if (!order?.id) {
+      return NextResponse.json(
+        { error: "Order was not generated upon cart completion" },
+        { status: 500 }
+      );
+    }
+
+    // 5. Record cart completion in lock manager
+    markCartCompleted(cart_id, order.id);
+
+    // 6. Generate cryptographically signed guest access token
+    const guestToken = createGuestOrderToken(order.id, order.email || "", 3600);
+
+    // 7. Issue secure HTTP-only cookie
+    const response = NextResponse.json(
       {
         type: "order",
-        order: json.order,
+        order,
+        guest_token: guestToken,
+        guest_order_token: guestToken,
       },
       { status: 200 }
     );
+
+    response.cookies.set({
+      name: `teb_guest_order_${order.id}`,
+      value: guestToken,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 3600, // 1 hour
+    });
+
+    return response;
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Cart order completion encountered an unexpected failure" },
       { status: 500 }
     );
+  } finally {
+    if (cartIdToUnlock) {
+      await releaseCartLock(cartIdToUnlock);
+    }
   }
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import type { PublicPublishedTheme } from "@the-ecom-buddy/types";
 import {
   ThemeRoot,
@@ -25,52 +24,130 @@ export const OrderConfirmationClient: React.FC<OrderConfirmationClientProps> = (
   regions,
   initialOrder,
 }) => {
-  const searchParams = useSearchParams();
-  const urlEmail = searchParams?.get("email") || "";
-
   const [order, setOrder] = useState<StoreOrder | null>(initialOrder || null);
-  const [emailInput, setEmailInput] = useState(urlEmail);
   const [isLoading, setIsLoading] = useState(!initialOrder);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrder = async (emailToVerify: string) => {
-    if (!emailToVerify.trim()) {
-      setError("Please enter your order confirmation email to view order details.");
+  // OTP Verification state
+  const [step, setStep] = useState<"request" | "verify">("request");
+  const [emailInput, setEmailInput] = useState("");
+  const [otpInput, setOtpInput] = useState("");
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Attempt to load order via cookie on mount if initialOrder was not preloaded
+  useEffect(() => {
+    if (initialOrder) {
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    const tryCookieAuth = async () => {
+      try {
+        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.order) {
+            setOrder(data.order);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[OrderConfirmation] Cookie auth check error:", err);
+      }
+      setIsLoading(false);
+    };
+
+    tryCookieAuth();
+  }, [initialOrder, orderId]);
+
+  // Request 6-digit OTP
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput.trim() || !emailInput.includes("@")) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSubmitting(true);
     setError(null);
+    setInfoMessage(null);
 
     try {
-      const res = await fetch(
-        `/api/orders/${encodeURIComponent(orderId)}?email=${encodeURIComponent(emailToVerify.trim())}`
-      );
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "request_otp",
+          email: emailInput.trim(),
+        }),
+      });
+
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Order details could not be retrieved.");
+        throw new Error(data.error || "Failed to send verification code.");
       }
 
-      if (data.order) {
-        setOrder(data.order);
-      } else {
-        throw new Error("Order record was not found.");
-      }
+      setStep("verify");
+      setInfoMessage(data.message || `Verification code sent to ${emailInput}.`);
     } catch (err: any) {
-      setError(err.message || "Failed to load order details.");
+      setError(err.message || "Failed to request verification code.");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    if (!initialOrder && urlEmail) {
-      fetchOrder(urlEmail);
-    } else if (!initialOrder && !urlEmail) {
-      setIsLoading(false);
+  // Verify 6-digit OTP
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpInput.trim() || otpInput.trim().length !== 6) {
+      setError("Please enter the complete 6-digit verification code.");
+      return;
     }
-  }, [initialOrder, urlEmail, orderId]);
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify_otp",
+          email: emailInput.trim(),
+          code: otpInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Verification failed. Please check the code.");
+      }
+
+      // Fresh cookie issued, fetch order details
+      const orderRes = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
+        headers: data.token ? { "x-guest-order-token": data.token } : {},
+      });
+
+      if (!orderRes.ok) {
+        throw new Error("Verification successful but could not load order record.");
+      }
+
+      const orderData = await orderRes.json();
+      if (orderData.order) {
+        setOrder(orderData.order);
+      } else {
+        throw new Error("Order record was not returned.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Invalid verification code.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <ThemeRoot theme={theme}>
@@ -85,7 +162,7 @@ export const OrderConfirmationClient: React.FC<OrderConfirmationClientProps> = (
         ) : order ? (
           <OrderConfirmationLayout theme={theme} order={order} />
         ) : (
-          /* Email Verification Gate for Guest Order */
+          /* Cryptographically Secure Guest Order Verification Gate */
           <div className="max-w-md mx-auto my-16 p-8 rounded-[var(--theme-radius)] bg-[var(--surface-subtle)] border border-[var(--border-subtle)] shadow-sm space-y-5">
             <div className="w-12 h-12 rounded-full bg-[var(--surface-muted)] flex items-center justify-center mx-auto text-[var(--brand-primary)]">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -94,46 +171,92 @@ export const OrderConfirmationClient: React.FC<OrderConfirmationClientProps> = (
             </div>
 
             <div className="text-center">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">Guest Order Verification</h2>
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">Verified Guest Order Access</h2>
               <p className="text-xs text-[var(--text-muted)] mt-1">
-                To protect customer privacy, please enter the email address used during checkout.
+                To protect customer privacy and proof of ownership, please verify your email address to view this order.
               </p>
             </div>
 
             {error && (
-              <div className="p-3 rounded-[var(--theme-radius)] bg-red-500/10 border border-red-500/30 text-red-500 text-xs">
+              <div className="p-3 rounded-[var(--theme-radius)] bg-red-500/10 border border-red-500/30 text-red-500 text-xs font-medium">
                 {error}
               </div>
             )}
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                fetchOrder(emailInput);
-              }}
-              className="space-y-4"
-            >
-              <div>
-                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                  Recipient Email
-                </label>
-                <input
-                  type="email"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="e.g. you@example.com"
-                  required
-                  className="w-full px-3 py-2 text-xs rounded-[var(--theme-radius)] bg-[var(--surface-base)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
-                />
+            {infoMessage && (
+              <div className="p-3 rounded-[var(--theme-radius)] bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+                {infoMessage}
               </div>
+            )}
 
-              <button
-                type="submit"
-                className="w-full py-2.5 text-xs font-bold rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white hover:opacity-95 transition-opacity"
-              >
-                Access Order
-              </button>
-            </form>
+            {step === "request" ? (
+              <form onSubmit={handleRequestOtp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Checkout Recipient Email
+                  </label>
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="e.g. you@example.com"
+                    required
+                    className="w-full px-3 py-2 text-xs rounded-[var(--theme-radius)] bg-[var(--surface-base)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 text-xs font-bold rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white hover:opacity-95 transition-opacity disabled:opacity-50"
+                >
+                  {isSubmitting ? "Sending Verification Code..." : "Send Verification Code"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    6-Digit Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpInput}
+                    onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
+                    placeholder="123456"
+                    required
+                    autoFocus
+                    className="w-full px-3 py-2 text-center tracking-widest text-base font-mono rounded-[var(--theme-radius)] bg-[var(--surface-base)] border border-[var(--border-subtle)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  />
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                    Enter the 6-digit code sent to <span className="font-semibold">{emailInput}</span>.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting || otpInput.length !== 6}
+                  className="w-full py-2.5 text-xs font-bold rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white hover:opacity-95 transition-opacity disabled:opacity-50"
+                >
+                  {isSubmitting ? "Verifying..." : "Verify & View Order"}
+                </button>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("request");
+                      setOtpInput("");
+                      setError(null);
+                    }}
+                    className="text-xs text-[var(--brand-primary)] hover:underline"
+                  >
+                    Change email or resend code
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </main>

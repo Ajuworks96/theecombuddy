@@ -436,40 +436,60 @@ async function main() {
     // -------------------------------------------------------------------------
     console.log("\n--- SUITE 9: Guest Order Security & Privacy Control ---");
 
-    // Verified order lookup with matching email
+    const guestToken = completeRes.data?.guest_order_token || completeRes.data?.guest_token;
+
+    // Verified order lookup with valid guest token
     const authOrderRes = await request(
-      `${STOREFRONT_URL}/api/orders/${createdOrderId}?email=guest@example.in`
+      `${STOREFRONT_URL}/api/orders/${createdOrderId}`,
+      {
+        headers: {
+          "x-guest-order-token": guestToken || "",
+        },
+      }
     );
     recordTest(
       "Suite 9",
-      "GET /api/orders/:id returns order details when matching email is provided (HTTP 200)",
+      "GET /api/orders/:id returns order details when matching token is provided (HTTP 200)",
       authOrderRes.status === 200 && authOrderRes.data?.order?.id === createdOrderId,
       `Order ID: ${authOrderRes.data?.order?.id}`
     );
 
-    // Denied order lookup without email
+    // Denied order lookup without guest token
     const noEmailRes = await request(`${STOREFRONT_URL}/api/orders/${createdOrderId}`);
     recordTest(
       "Suite 9",
-      "GET /api/orders/:id denies access without email verification (HTTP 403 Forbidden)",
-      noEmailRes.status === 403,
+      "GET /api/orders/:id denies access without guest token verification (HTTP 401 Unauthorized)",
+      noEmailRes.status === 401,
       `Status: ${noEmailRes.status}, Error: '${noEmailRes.data?.error}'`
     );
 
-    // Denied order lookup with wrong email
+    // Denied order lookup with wrong email query parameter (cannot bypass guest token)
     const wrongEmailRes = await request(
       `${STOREFRONT_URL}/api/orders/${createdOrderId}?email=attacker@malicious.com`
     );
     recordTest(
       "Suite 9",
-      "GET /api/orders/:id denies access when email does not match order record (HTTP 403)",
-      wrongEmailRes.status === 403,
+      "GET /api/orders/:id denies access when email query param is provided without token (HTTP 401)",
+      wrongEmailRes.status === 401,
       `Status: ${wrongEmailRes.status}`
     );
 
-    // Non-existent order lookup
+    // Non-existent order lookup with signed token
+    const crypto = require("crypto");
+    const testSecret = process.env.GUEST_ORDER_SECRET || "supersecret_ecom_buddy_jwt_token_development_only";
+    const fakeNow = Math.floor(Date.now() / 1000);
+    const fakePayload = { order_id: "order_fake_non_existent", email: "test@test.com", exp: fakeNow + 3600, iat: fakeNow };
+    const fakeB64 = Buffer.from(JSON.stringify(fakePayload)).toString("base64url");
+    const fakeSig = crypto.createHmac("sha256", testSecret).update(fakeB64).digest("base64url");
+    const fakeToken = `${fakeB64}.${fakeSig}`;
+
     const notFoundRes = await request(
-      `${STOREFRONT_URL}/api/orders/order_fake_non_existent?email=test@test.com`
+      `${STOREFRONT_URL}/api/orders/order_fake_non_existent`,
+      {
+        headers: {
+          "x-guest-order-token": fakeToken,
+        },
+      }
     );
     recordTest(
       "Suite 9",
@@ -515,12 +535,13 @@ async function main() {
     console.log("\n--- SUITE 11: Cleanup & Zero Test Pollution Teardown ---");
 
     if (createdOrderId) {
-      // Clean up reservations linked to test order line items and restore inventory levels
+      // Safely release reservations and soft-delete test order without raw SQL DELETE
       const itemRows = await pg.query('SELECT item_id FROM order_item WHERE order_id = $1', [createdOrderId]);
       const lineItemIds = itemRows.rows.map(r => r.item_id).filter(Boolean);
       if (lineItemIds.length > 0) {
         const resRows = await pg.query('SELECT DISTINCT inventory_item_id, location_id FROM reservation_item WHERE line_item_id = ANY($1)', [lineItemIds]);
-        await pg.query('DELETE FROM reservation_item WHERE line_item_id = ANY($1)', [lineItemIds]);
+        // Soft-delete reservation items (sets deleted_at, zero hard deletes)
+        await pg.query('UPDATE reservation_item SET deleted_at = NOW() WHERE line_item_id = ANY($1)', [lineItemIds]);
         for (const row of resRows.rows) {
           await pg.query(`
             UPDATE inventory_level il
@@ -546,21 +567,13 @@ async function main() {
           `, [row.inventory_item_id, row.location_id]);
         }
 
-        // Clean up line items and adjustments
-        await pg.query('DELETE FROM order_line_item_adjustment WHERE item_id = ANY($1)', [lineItemIds]);
-        await pg.query('DELETE FROM order_line_item_tax_line WHERE item_id = ANY($1)', [lineItemIds]);
-        await pg.query('DELETE FROM order_line_item WHERE id = ANY($1)', [lineItemIds]);
+        // Soft-delete line items
+        await pg.query('UPDATE order_line_item SET deleted_at = NOW() WHERE id = ANY($1)', [lineItemIds]);
       }
 
-      // Clean up test order across all foreign key tables
-      await pg.query('DELETE FROM order_change WHERE order_id = $1', [createdOrderId]);
-      await pg.query('DELETE FROM order_item WHERE order_id = $1', [createdOrderId]);
-      await pg.query('DELETE FROM order_shipping WHERE order_id = $1', [createdOrderId]);
-      await pg.query('DELETE FROM order_transaction WHERE order_id = $1', [createdOrderId]);
-      await pg.query('DELETE FROM order_summary WHERE order_id = $1', [createdOrderId]);
-      await pg.query('DELETE FROM order_credit_line WHERE order_id = $1', [createdOrderId]);
-      await pg.query('DELETE FROM "order" WHERE id = $1', [createdOrderId]);
-      console.log(`  [CLEANUP] Successfully cleaned up temporary test order ${createdOrderId}`);
+      // Soft-delete test order (preserves audit integrity and foreign key relations)
+      await pg.query('UPDATE "order" SET deleted_at = NOW(), status = \'canceled\', canceled_at = NOW() WHERE id = $1', [createdOrderId]);
+      console.log(`  [CLEANUP] Safely archived & soft-deleted temporary test order ${createdOrderId} (Zero destructive deletes)`);
     }
 
     const postProdRes = await pg.query("SELECT count(*) FROM product WHERE deleted_at IS NULL");

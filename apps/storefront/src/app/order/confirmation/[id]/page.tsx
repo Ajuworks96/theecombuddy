@@ -1,8 +1,10 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getPublishedTheme, getStoreRegions, getStoreOrder } from "../../../../lib/medusa-client";
+import { cookies } from "next/headers";
+import { getPublishedTheme, getStoreRegions } from "../../../../lib/medusa-client";
 import { DEFAULT_STOREFRONT_THEME } from "../../../../lib/default-theme";
 import { OrderConfirmationClient } from "../../../../components/OrderConfirmationClient";
+import { verifyGuestOrderToken } from "../../../../lib/guest-order-token";
 
 export const dynamic = "force-dynamic";
 
@@ -26,31 +28,59 @@ export async function generateMetadata({
 
 export default async function OrderConfirmationPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ email?: string }>;
 }) {
   const { id: orderId } = await params;
-  const { email } = await searchParams;
 
   if (!orderId) {
     notFound();
   }
 
-  const [themeRes, regions] = await Promise.all([
+  const [themeRes, regions, cookieStore] = await Promise.all([
     getPublishedTheme(),
     getStoreRegions(),
+    cookies(),
   ]);
 
   const theme = themeRes || DEFAULT_STOREFRONT_THEME;
 
-  // If email is passed in searchParams, verify and preload on server
+  // Check if secure guest order token cookie is present
+  const cookieName = `teb_guest_order_${orderId}`;
+  const tokenCookie = cookieStore.get(cookieName)?.value;
+
   let initialOrder: any = null;
-  if (email) {
-    const fetched = await getStoreOrder(orderId);
-    if (fetched && fetched.email?.toLowerCase() === email.toLowerCase().trim()) {
-      initialOrder = fetched;
+  if (tokenCookie) {
+    const verification = verifyGuestOrderToken(tokenCookie, orderId);
+    if (verification.valid) {
+      try {
+        const backendUrl =
+          process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
+          process.env.MEDUSA_BACKEND_URL ||
+          "http://localhost:9000";
+        const pk =
+          process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
+          process.env.MEDUSA_PUBLISHABLE_KEY ||
+          "pk_ff34c9cc987ee5880382dba5c708c0e3613226919f08e1f5e3e43c9fd817266a";
+
+        const res = await fetch(
+          `${backendUrl}/store/orders/${encodeURIComponent(orderId)}?fields=*items,*shipping_address,*billing_address,*shipping_methods,*payment_collections,*payment_collections.payments`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "x-publishable-api-key": pk,
+              "x-guest-order-token": tokenCookie,
+            },
+            cache: "no-store",
+          }
+        );
+        if (res.ok) {
+          const json = await res.json();
+          initialOrder = json.order || null;
+        }
+      } catch (e) {
+        console.warn("[OrderConfirmationPage] Preload error:", e);
+      }
     }
   }
 

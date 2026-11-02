@@ -92,3 +92,4 @@ export const CartClient: React.FC<CartClientProps> = (props) => {
     </CartProvider>
   );
 };
+

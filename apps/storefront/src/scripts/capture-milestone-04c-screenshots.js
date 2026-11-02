@@ -238,3 +238,4 @@ main().catch((err) => {
   console.error("Fatal screenshot execution error:", err);
   process.exit(1);
 });
+

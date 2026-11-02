@@ -227,3 +227,4 @@ export const CheckoutClient: React.FC<CheckoutClientProps> = (props) => {
     </CartProvider>
   );
 };
+

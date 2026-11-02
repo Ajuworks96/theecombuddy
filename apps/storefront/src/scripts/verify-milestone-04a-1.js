@@ -160,7 +160,7 @@ async function runSuite() {
 
     // 4. Confirm customer orders count is exactly 3 and untouched
     const orderRes = await pgClient.query(`
-      SELECT count(*) FROM "order"
+      SELECT count(*) FROM "order" WHERE deleted_at IS NULL
     `);
     const orderCount = parseInt(orderRes.rows[0].count, 10);
 

@@ -246,9 +246,9 @@ export const CheckoutLayout: React.FC<CheckoutLayoutProps> = ({
         throw new Error(result.error || "Failed to complete checkout. Please try again.");
       }
 
-      // Redirect to confirmation page
+      // Redirect to confirmation page (clean URL, session authorized via secure httpOnly cookie)
       if (result.orderId) {
-        window.location.href = `/order/confirmation/${result.orderId}?email=${encodeURIComponent(email.trim())}`;
+        window.location.href = `/order/confirmation/${result.orderId}`;
       }
     } catch (err: any) {
       setCheckoutError(err.message || "An unexpected error occurred during order completion.");

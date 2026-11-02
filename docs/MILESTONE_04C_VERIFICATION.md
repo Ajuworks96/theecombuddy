@@ -337,3 +337,4 @@ Milestone 04C is **fully verified, tested, and complete**. The customer shopping
 - **NO** simulated live Razorpay payments (production credentials safety guardrail preserved).
 - **NO** customer account registration / account dashboard development (strictly deferred to upcoming milestones).
 - **STOPPED STRICTLY** after completing Milestone 04C.
+

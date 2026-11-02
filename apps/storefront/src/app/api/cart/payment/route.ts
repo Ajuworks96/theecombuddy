@@ -24,7 +24,67 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cart_id is required" }, { status: 400 });
     }
 
-    // 1. Create or retrieve payment collection
+    // 1. Fetch cart to enforce payment and market rules
+    const cartRes = await fetch(
+      `${MEDUSA_BACKEND_URL}/store/carts/${encodeURIComponent(cart_id)}`,
+      {
+        headers,
+        cache: "no-store",
+      }
+    );
+
+    if (!cartRes.ok) {
+      return NextResponse.json(
+        { error: "Cart not found or expired" },
+        { status: cartRes.status }
+      );
+    }
+
+    const cartJson = await cartRes.json();
+    const cart = cartJson.cart;
+
+    if (!cart) {
+      return NextResponse.json({ error: "Cart not found" }, { status: 404 });
+    }
+
+    // Rule: Cash on Delivery (COD) is strictly restricted to India (Domestic Market Only)
+    const isDomesticIndia =
+      cart.currency_code?.toLowerCase() === "inr" ||
+      cart.shipping_address?.country_code?.toLowerCase() === "in";
+
+    if (provider_id === "pp_system_default" && !isDomesticIndia) {
+      return NextResponse.json(
+        {
+          error:
+            "Cash on Delivery (COD) is only available for domestic delivery within India (INR). International orders require online payment.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Rule: Shipping destination country and cart currency/region must agree
+    if (cart.shipping_address?.country_code) {
+      const shippingCountry = cart.shipping_address.country_code.toLowerCase();
+      if (shippingCountry === "in" && cart.currency_code?.toLowerCase() !== "inr") {
+        return NextResponse.json(
+          {
+            error: "Destination mismatch: Deliveries to India require checkout in INR currency.",
+          },
+          { status: 400 }
+        );
+      }
+      if (shippingCountry !== "in" && cart.currency_code?.toLowerCase() === "inr") {
+        return NextResponse.json(
+          {
+            error:
+              "Destination mismatch: International delivery requires destination market currency.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 2. Create or retrieve payment collection
     const pcRes = await fetch(`${MEDUSA_BACKEND_URL}/store/payment-collections`, {
       method: "POST",
       headers,
@@ -47,7 +107,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Create payment session for provider
+    // 3. Create payment session for provider
     const psRes = await fetch(
       `${MEDUSA_BACKEND_URL}/store/payment-collections/${encodeURIComponent(paymentCollection.id)}/payment-sessions`,
       {

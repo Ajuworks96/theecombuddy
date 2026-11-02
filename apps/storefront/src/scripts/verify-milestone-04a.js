@@ -734,7 +734,7 @@ async function runVerification() {
       `Confirmed ${productCount} catalog products preserved in PostgreSQL`
     );
 
-    const oQuery = await pg.query("SELECT count(*) FROM public.order");
+    const oQuery = await pg.query("SELECT count(*) FROM public.order WHERE deleted_at IS NULL");
     const orderCount = parseInt(oQuery.rows[0].count, 10);
     recordTest(
       "Suite 10",

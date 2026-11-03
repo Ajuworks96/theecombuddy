@@ -37,6 +37,17 @@ export default defineConfig({
                 .map((c) => c.trim().toLowerCase()),
             },
           },
+          {
+            resolve: "./src/modules/payment-cashfree",
+            id: "cashfree",
+            options: {
+              app_id: process.env.CASHFREE_APP_ID,
+              secret_key: process.env.CASHFREE_SECRET_KEY,
+              webhook_secret: process.env.CASHFREE_WEBHOOK_SECRET,
+              environment: process.env.PAYMENT_ENVIRONMENT === "live" ? "production" : "sandbox",
+              supported_currencies: ["inr"],
+            },
+          },
         ],
       },
     },

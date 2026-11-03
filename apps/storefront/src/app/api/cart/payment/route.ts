@@ -62,6 +62,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Rule: Cashfree is restricted to domestic INR orders
+    if ((provider_id === "pp_cashfree_cashfree" || provider_id === "cashfree") && !isDomesticIndia) {
+      return NextResponse.json(
+        {
+          error:
+            "Cashfree payments are only available for domestic delivery in INR within India.",
+        },
+        { status: 400 }
+      );
+    }
+
     // Rule: Shipping destination country and cart currency/region must agree
     if (cart.shipping_address?.country_code) {
       const shippingCountry = cart.shipping_address.country_code.toLowerCase();

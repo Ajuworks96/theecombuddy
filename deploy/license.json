@@ -1,0 +1,34 @@
+{
+  "license_id": "lic_e132af35-3c56-40a3-b4d7-dfe32365ea10",
+  "licensee_name": "The Ecom Buddy Official Merchant",
+  "licensee_email": "merchant@theecombuddy.com",
+  "permitted_domains": [
+    "localhost",
+    "127.0.0.1",
+    "*.theecombuddy.com",
+    "theecombuddy.com",
+    "theecombuddy.local"
+  ],
+  "permitted_storefronts": 1,
+  "issue_date": "2026-11-03",
+  "license_type": "perpetual",
+  "features": [
+    "storefront",
+    "merchant_dashboard",
+    "medusa_backend",
+    "razorpay_gateway",
+    "cashfree_gateway",
+    "cash_on_delivery",
+    "international_multi_currency",
+    "published_theme_engine",
+    "durable_reconciliation_inbox",
+    "role_based_access_control"
+  ],
+  "metadata": {
+    "edition": "Single-Merchant Perpetual License",
+    "telemetry": "disabled",
+    "offline_verification": true,
+    "issued_by": "The Ecom Buddy Core Vendor"
+  },
+  "signature": "MrkKyc8wQTk0xVHcdvFTQzY3dbqXU28u4cYWXWCu6d8cq945KrE6AnkIOP3UV8c8LSKXoe9S5tXUw0tNjHmn8KunWj67DUPbPaF0Jq2qKVPnEJVPjRhg2s83wwmPO0r54jyVGaVNLJO+5UIVCAE+jYzmgOFZTyi+BiUX7EgK4xcX8+bzBE778j4wQvioLoPPxWOztMSuX4EWgzo4X8BQgrYON+1hnaOHzEabFqHSzmHzsYJo87Z7SX0e/uugs5XlOek16oNBVnYvY/fhDh3n+MlSNYyb6daJxHlj0XR3JqY7bjNVd/fGWNwsKWsHgyy6XX6OpsejPiedLFeZeW2kRQ=="
+}

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCustomerToken, revokeCustomerToken } from "@/lib/customer-auth";
 
 export async function POST(req: NextRequest) {
+  const token = getCustomerToken(req);
+  if (token) {
+    await revokeCustomerToken(token);
+  }
+
   const response = NextResponse.json(
     { success: true, message: "Logged out successfully" },
     { status: 200 }
@@ -18,4 +24,3 @@ export async function POST(req: NextRequest) {
 
   return response;
 }
-

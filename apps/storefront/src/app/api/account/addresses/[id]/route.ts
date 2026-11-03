@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateCustomerSession } from "@/lib/customer-auth";
 
 const MEDUSA_BACKEND_URL =
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
@@ -10,28 +11,20 @@ const PUBLISHABLE_KEY =
   process.env.MEDUSA_PUBLISHABLE_KEY ||
   "pk_ff34c9cc987ee5880382dba5c708c0e3613226919f08e1f5e3e43c9fd817266a";
 
-function extractToken(req: NextRequest): string | null {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.substring(7).trim();
-  }
-  const cookie = req.cookies.get("teb_customer_token");
-  if (cookie && cookie.value) {
-    return cookie.value.trim();
-  }
-  return null;
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: addressId } = await params;
-    const token = extractToken(req);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthenticated session" }, { status: 401 });
+    const session = await validateCustomerSession(req);
+    if (!session.isAuthenticated || !session.token) {
+      return NextResponse.json(
+        { error: session.error || "Unauthenticated session" },
+        { status: 401 }
+      );
     }
+    const token = session.token;
 
     if (!addressId) {
       return NextResponse.json({ error: "Address ID is required" }, { status: 400 });
@@ -49,27 +42,23 @@ export async function POST(
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
     if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { error: data.message || "Failed to update address" },
+        { error: err.message || "Failed to update address" },
         { status: res.status }
       );
     }
 
-    const updatedAddress =
-      data.address ||
-      (Array.isArray(data.customer?.addresses)
-        ? data.customer.addresses.find((a: any) => a.id === addressId)
-        : null);
-
-    return NextResponse.json(
-      { success: true, address: updatedAddress },
-      { status: 200 }
-    );
+    const data = await res.json();
+    return NextResponse.json({
+      success: true,
+      address: data.customer?.addresses?.find((a: any) => a.id === addressId) || data.address,
+      customer: data.customer,
+    });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || "Failed to update address" },
+      { error: err.message || "Failed to process update address request" },
       { status: 500 }
     );
   }
@@ -81,10 +70,14 @@ export async function DELETE(
 ) {
   try {
     const { id: addressId } = await params;
-    const token = extractToken(req);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthenticated session" }, { status: 401 });
+    const session = await validateCustomerSession(req);
+    if (!session.isAuthenticated || !session.token) {
+      return NextResponse.json(
+        { error: session.error || "Unauthenticated session" },
+        { status: 401 }
+      );
     }
+    const token = session.token;
 
     if (!addressId) {
       return NextResponse.json({ error: "Address ID is required" }, { status: 400 });
@@ -99,21 +92,24 @@ export async function DELETE(
       },
     });
 
-    const data = await res.json();
     if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { error: data.message || "Failed to delete address" },
+        { error: err.message || "Failed to delete address" },
         { status: res.status }
       );
     }
 
-    return NextResponse.json(
-      { success: true, id: addressId },
-      { status: 200 }
-    );
+    const data = await res.json();
+    return NextResponse.json({
+      success: true,
+      id: addressId,
+      message: "Address deleted successfully",
+      customer: data.customer,
+    });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || "Failed to delete address" },
+      { error: err.message || "Failed to process delete address request" },
       { status: 500 }
     );
   }

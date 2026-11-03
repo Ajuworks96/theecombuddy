@@ -92,6 +92,85 @@ export function createGuestOrderToken(orderId: string, email: string, ttlSeconds
 export default defineMiddlewares({
   routes: [
     {
+      matcher: "/admin/*",
+      middlewares: [
+        async (req: MedusaRequest, res: MedusaResponse, next: any) => {
+          const authContext = (req as any).auth_context;
+          if (!authContext || authContext.actor_type !== "user") {
+            return next();
+          }
+
+          const userId = authContext.actor_id;
+          if (!userId) return next();
+
+          try {
+            const pool = getDbPool();
+            const roleRes = await pool.query(
+              "SELECT role, permissions FROM staff_roles WHERE user_id = $1",
+              [userId]
+            );
+
+            const staffRole = roleRes.rows.length > 0 ? roleRes.rows[0].role : "store_owner";
+            (req as any).staff_role = staffRole;
+
+            if (staffRole === "store_owner") {
+              return next();
+            }
+
+            const path = req.path || (req as any).originalUrl || "";
+            const method = req.method.toUpperCase();
+
+            // store_manager restrictions
+            if (staffRole === "store_manager") {
+              if (
+                path.startsWith("/admin/api-keys") ||
+                path.startsWith("/admin/users") ||
+                path.includes("/payments/credentials")
+              ) {
+                return res.status(403).json({
+                  message: "Forbidden: Store managers are not permitted to manage API keys or staff roles.",
+                  type: "forbidden",
+                });
+              }
+              return next();
+            }
+
+            // operations_staff restrictions
+            if (staffRole === "operations_staff") {
+              if (
+                path.startsWith("/admin/api-keys") ||
+                path.startsWith("/admin/users") ||
+                path.startsWith("/admin/settings")
+              ) {
+                return res.status(403).json({
+                  message: "Forbidden: Operations staff cannot access system settings or credentials.",
+                  type: "forbidden",
+                });
+              }
+
+              if (
+                (path.startsWith("/admin/products") ||
+                  path.startsWith("/admin/collections") ||
+                  path.startsWith("/admin/categories")) &&
+                method !== "GET"
+              ) {
+                return res.status(403).json({
+                  message: "Forbidden: Operations staff have read-only access to catalog products and inventory.",
+                  type: "forbidden",
+                });
+              }
+
+              return next();
+            }
+
+            return next();
+          } catch {
+            return next();
+          }
+        },
+      ],
+    },
+    {
       matcher: "/store/orders/:id",
       method: ["GET"],
       middlewares: [

@@ -1,0 +1,212 @@
+# ==============================================================================
+# THE ECOM BUDDY — Production Docker Compose Orchestration
+# Single-Merchant Autonomous Self-Hosted E-Commerce Infrastructure
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Primary PostgreSQL 16 Database
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: teb-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+      POSTGRES_DB: ${POSTGRES_DB:-medusa_ecom_buddy}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-medusa_ecom_buddy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c work_mem=16MB
+      -c maintenance_work_mem=64MB
+      -c min_wal_size=100MB
+      -c max_wal_size=1GB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+
+  # ----------------------------------------------------------------------------
+  # 2. Redis 7 Caching, Cart Locking, Rate Limiting & Queue
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: teb-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 3. Medusa v2 Commerce Core Engine (API Server)
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfiles/Dockerfile.backend
+    container_name: teb-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      PORT: 9000
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-medusa_ecom_buddy}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
+    volumes:
+      - uploads_data:/app/apps/backend/uploads
+      - ./license.json:/app/deploy/license.json:ro
+    ports:
+      - "127.0.0.1:9000:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ----------------------------------------------------------------------------
+  # 4. Medusa v2 Background Worker (Scheduled Tasks & Async Workflows)
+  # ----------------------------------------------------------------------------
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfiles/Dockerfile.backend
+    container_name: teb-worker
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-medusa_ecom_buddy}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
+    command: ["npx", "medusa", "worker"]
+    volumes:
+      - uploads_data:/app/apps/backend/uploads
+      - ./license.json:/app/deploy/license.json:ro
+
+  # ----------------------------------------------------------------------------
+  # 5. Merchant Dashboard (Next.js 15)
+  # ----------------------------------------------------------------------------
+  merchant:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfiles/Dockerfile.merchant
+    container_name: teb-merchant
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      PORT: 7001
+      NODE_ENV: production
+      MEDUSA_BACKEND_URL: http://backend:9000
+      NEXT_PUBLIC_MEDUSA_BACKEND_URL: ${BACKEND_PUBLIC_URL:-http://localhost:9000}
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-medusa_ecom_buddy}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
+      LICENSE_FILE_PATH: /app/deploy/license.json
+    volumes:
+      - ./license.json:/app/deploy/license.json:ro
+    ports:
+      - "127.0.0.1:7001:7001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7001/login || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # 6. Customer Storefront (Next.js 15 App Router)
+  # ----------------------------------------------------------------------------
+  storefront:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfiles/Dockerfile.storefront
+    container_name: teb-storefront
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      MEDUSA_BACKEND_URL: http://backend:9000
+      NEXT_PUBLIC_MEDUSA_BACKEND_URL: ${BACKEND_PUBLIC_URL:-http://localhost:9000}
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-medusa_ecom_buddy}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # 7. Caddy Edge Proxy (Automatic TLS & Port Routing)
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: teb-caddy
+    restart: always
+    depends_on:
+      - storefront
+      - merchant
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      STORE_DOMAIN: ${STORE_DOMAIN:-localhost}
+      MERCHANT_DOMAIN: ${MERCHANT_DOMAIN:-admin.localhost}
+      BACKEND_DOMAIN: ${BACKEND_DOMAIN:-api.localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@theecombuddy.com}
+    volumes:
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+    name: teb_postgres_data
+  redis_data:
+    name: teb_redis_data
+  uploads_data:
+    name: teb_uploads_data
+  caddy_data:
+    name: teb_caddy_data
+  caddy_config:
+    name: teb_caddy_config

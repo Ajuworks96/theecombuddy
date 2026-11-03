@@ -1,0 +1,64 @@
+# ==============================================================================
+# THE ECOM BUDDY — Customer Storefront Next.js 15 Dockerfile
+# Multi-stage production build on Node.js 22 Alpine
+# ==============================================================================
+
+# Stage 1: Dependencies
+FROM node:22-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY apps/storefront/package.json ./apps/storefront/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/config/package.json ./packages/config/
+
+RUN npm ci
+
+# Stage 2: Builder
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/storefront/node_modules ./apps/storefront/node_modules
+COPY package.json ./
+COPY packages ./packages
+COPY apps/storefront ./apps/storefront
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN npm run build:storefront
+
+# Stage 3: Production Runner
+FROM node:22-alpine AS runner
+RUN apk add --no-cache tini curl
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/apps/storefront/.next ./apps/storefront/.next
+COPY --from=builder /app/apps/storefront/public ./apps/storefront/public
+COPY --from=builder /app/packages ./packages
+COPY apps/storefront/package.json ./apps/storefront/package.json
+COPY apps/storefront/next.config.js* ./apps/storefront/
+COPY package.json ./
+
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || curl -f http://localhost:3000/ || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["npm", "run", "start", "--workspace=@the-ecom-buddy/storefront"]

@@ -1,0 +1,103 @@
+# ==============================================================================
+# THE ECOM BUDDY — Caddy Reverse Proxy Configuration
+# Automatic TLS (Let's Encrypt / ZeroSSL), HTTP/2 & HTTP/3, Zero-Config Routing
+# ==============================================================================
+
+{
+  admin off
+  auto_https off # Set to 'on' or omit in production with public DNS
+  email {$ACME_EMAIL:admin@theecombuddy.com}
+  servers {
+    trusted_proxies static private_ranges
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 1. Customer Storefront (Root Domain: e.g. mystore.com or localhost:80)
+# ------------------------------------------------------------------------------
+{$STORE_DOMAIN:localhost:80} {
+  encode zstd gzip
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    X-XSS-Protection "1; mode=block"
+  }
+
+  # Route uploads/media directly or through backend
+  handle_path /uploads/* {
+    reverse_proxy backend:9000
+  }
+
+  # All storefront customer traffic
+  handle {
+    reverse_proxy storefront:3000 {
+      header_up Host {host}
+      header_up X-Real-IP {remote_host}
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
+    }
+  }
+
+  log {
+    output stdout
+    format json
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 2. Merchant Dashboard (Admin Domain: e.g. admin.mystore.com or :7001)
+# ------------------------------------------------------------------------------
+{$MERCHANT_DOMAIN:admin.localhost:80} {
+  encode zstd gzip
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+
+  handle {
+    reverse_proxy merchant:7001 {
+      header_up Host {host}
+      header_up X-Real-IP {remote_host}
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
+    }
+  }
+
+  log {
+    output stdout
+    format json
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 3. Medusa API & Webhook Gateway (API Domain: e.g. api.mystore.com or :9000)
+# ------------------------------------------------------------------------------
+{$BACKEND_DOMAIN:api.localhost:80} {
+  encode zstd gzip
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+  }
+
+  handle {
+    reverse_proxy backend:9000 {
+      header_up Host {host}
+      header_up X-Real-IP {remote_host}
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Forwarded-Proto {scheme}
+    }
+  }
+
+  log {
+    output stdout
+    format json
+  }
+}

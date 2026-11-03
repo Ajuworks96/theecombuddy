@@ -269,3 +269,34 @@ export interface PublicPublishedTheme {
   footer: ThemeConfig["footer"];
   domain: ThemeConfig["domain"];
 }
+
+/**
+ * ==============================================================================
+ * Master Release: Offline Perpetual White-Label License Types
+ * ==============================================================================
+ */
+
+export interface LicenseManifest {
+  license_id: string;
+  licensee_name: string;
+  licensee_email: string;
+  permitted_domains: string[];
+  permitted_storefronts: number;
+  issue_date: string;
+  license_type: "perpetual" | "trial" | "subscription";
+  features: string[];
+  metadata?: Record<string, any>;
+  signature: string;
+}
+
+export interface LicenseVerificationResult {
+  valid: boolean;
+  status: "valid" | "invalid_signature" | "expired" | "domain_mismatch" | "unlicensed" | "trial";
+  license?: LicenseManifest;
+  message: string;
+  licensee?: string;
+  permitted_domains?: string[];
+  issue_date?: string;
+  license_type?: string;
+}
+

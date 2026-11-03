@@ -44,24 +44,18 @@ function getRedis(): Redis | null {
   return redisClient;
 }
 
-function extractToken(req: NextRequest): string | null {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.substring(7).trim();
-  }
-  const cookie = req.cookies.get("teb_customer_token");
-  if (cookie && cookie.value) {
-    return cookie.value.trim();
-  }
-  return null;
-}
+import { validateCustomerSession } from "@/lib/customer-auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const token = extractToken(req);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthenticated session" }, { status: 401 });
+    const session = await validateCustomerSession(req);
+    if (!session.isAuthenticated || !session.token) {
+      return NextResponse.json(
+        { error: session.error || "Unauthenticated session" },
+        { status: 401 }
+      );
     }
+    const token = session.token;
 
     // 1. Fetch authenticated customer identity
     const meRes = await fetch(`${MEDUSA_BACKEND_URL}/store/customers/me`, {

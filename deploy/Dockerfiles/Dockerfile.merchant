@@ -1,0 +1,64 @@
+# ==============================================================================
+# THE ECOM BUDDY — Merchant Dashboard Next.js 15 Dockerfile
+# Multi-stage production build on Node.js 22 Alpine
+# ==============================================================================
+
+# Stage 1: Dependencies
+FROM node:22-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY apps/merchant/package.json ./apps/merchant/
+COPY packages/types/package.json ./packages/types/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/config/package.json ./packages/config/
+
+RUN npm ci
+
+# Stage 2: Builder
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/merchant/node_modules ./apps/merchant/node_modules
+COPY package.json ./
+COPY packages ./packages
+COPY apps/merchant ./apps/merchant
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN npm run build:merchant
+
+# Stage 3: Production Runner
+FROM node:22-alpine AS runner
+RUN apk add --no-cache tini curl
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=7001
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/apps/merchant/.next ./apps/merchant/.next
+COPY --from=builder /app/apps/merchant/public ./apps/merchant/public
+COPY --from=builder /app/packages ./packages
+COPY apps/merchant/package.json ./apps/merchant/package.json
+COPY apps/merchant/next.config.js* ./apps/merchant/
+COPY package.json ./
+
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
+
+EXPOSE 7001
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:7001/login || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["npm", "run", "start", "--workspace=@the-ecom-buddy/merchant"]

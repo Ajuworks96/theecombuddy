@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateCustomerSession } from "@/lib/customer-auth";
 
 const MEDUSA_BACKEND_URL =
   process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
@@ -10,29 +11,20 @@ const PUBLISHABLE_KEY =
   process.env.MEDUSA_PUBLISHABLE_KEY ||
   "pk_ff34c9cc987ee5880382dba5c708c0e3613226919f08e1f5e3e43c9fd817266a";
 
-function extractToken(req: NextRequest): string | null {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.substring(7).trim();
-  }
-  const cookie = req.cookies.get("teb_customer_token");
-  if (cookie && cookie.value) {
-    return cookie.value.trim();
-  }
-  return null;
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: orderId } = await params;
-    const token = extractToken(req);
-
-    if (!token) {
-      return NextResponse.json({ error: "Unauthenticated session" }, { status: 401 });
+    const session = await validateCustomerSession(req);
+    if (!session.isAuthenticated || !session.token) {
+      return NextResponse.json(
+        { error: session.error || "Unauthenticated session" },
+        { status: 401 }
+      );
     }
+    const token = session.token;
 
     if (!orderId) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
@@ -51,43 +43,21 @@ export async function GET(
     );
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
+      const err = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errData.message || "Access denied or order not found" },
+        { error: err.message || "Failed to retrieve order details" },
         { status: res.status }
       );
     }
 
     const data = await res.json();
-    const order = data.order;
-
-    if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    }
-
-    // Process shipments and tracking labels
-    const shipments = (order.fulfillments || []).map((f: any) => ({
-      id: f.id,
-      created_at: f.created_at,
-      shipped_at: f.shipped_at || f.created_at,
-      carrier: f.labels?.[0]?.tracking_number ? "Standard Courier" : "Pending Dispatch",
-      tracking_number: f.labels?.[0]?.tracking_number || null,
-      tracking_url: f.labels?.[0]?.tracking_url || null,
-    }));
-
-    return NextResponse.json(
-      {
-        order,
-        shipments,
-        is_tracking_available: shipments.some((s: any) => Boolean(s.tracking_number)),
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      order: data.order,
+    });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || "Failed to retrieve order" },
+      { error: err.message || "Failed to process order details request" },
       { status: 500 }
     );
   }
 }
-

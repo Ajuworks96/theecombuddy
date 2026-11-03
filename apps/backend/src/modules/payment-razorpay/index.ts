@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { Pool } from "pg";
 import {
   AbstractPaymentProvider,
   ContainerRegistrationKeys,
@@ -1071,6 +1072,32 @@ export class RazorpayPaymentProviderService extends AbstractPaymentProvider<Razo
 
     // Step 3: Process the event safely with error rollback
     try {
+      // Record into durable PostgreSQL payment_event_inbox for audit & reconciliation
+      try {
+        const pool = new Pool({
+          connectionString:
+            process.env.DATABASE_URL ||
+            "postgres://postgres:password@localhost:5432/medusa_ecom_buddy",
+          max: 2,
+        });
+        await pool.query(
+          `INSERT INTO payment_event_inbox (id, provider_id, event_id, event_type, entity_id, payload, status, received_at, created_at, updated_at)
+           VALUES ($1, 'razorpay', $2, $3, $4, $5, 'received', NOW(), NOW(), NOW())
+           ON CONFLICT (provider_id, event_id) DO UPDATE
+           SET attempts = payment_event_inbox.attempts + 1, updated_at = NOW()`,
+          [
+            `pei_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+            eventId || eventKey,
+            event || "payment",
+            paymentEntity?.id || orderEntity?.id || sessionId,
+            JSON.stringify(payloadData),
+          ]
+        );
+        await pool.end();
+      } catch {
+        // Non-blocking durable audit
+      }
+
       // Register in-flight session lock association so downstream subscriber can finalize it
       const sessionLockKey = `teb:webhook:session_lock:${sessionId}:${event || "event"}`;
       await redis.set(

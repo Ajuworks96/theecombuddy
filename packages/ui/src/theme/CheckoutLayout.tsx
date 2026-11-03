@@ -631,6 +631,40 @@ export const CheckoutLayout: React.FC<CheckoutLayoutProps> = ({
                     </p>
                   </div>
                 </label>
+
+                {/* Cashfree Online Payment */}
+                <label
+                  className={`p-4 rounded-[var(--theme-radius)] border transition-all flex items-start gap-3 opacity-90 ${
+                    selectedPaymentProvider === "pp_cashfree_cashfree"
+                      ? "border-[var(--brand-primary)] bg-[var(--brand-primary)]/5"
+                      : "border-[var(--border-subtle)] bg-[var(--surface-base)]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentProvider"
+                    value="pp_cashfree_cashfree"
+                    checked={selectedPaymentProvider === "pp_cashfree_cashfree"}
+                    onChange={() => setSelectedPaymentProvider("pp_cashfree_cashfree")}
+                    disabled={!isIndia}
+                    className="mt-1 w-4 h-4 text-[var(--brand-primary)] border-[var(--border-subtle)] focus:ring-[var(--brand-primary)]"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs sm:text-sm font-bold text-[var(--text-primary)]">
+                        UPI / NetBanking / Cards (Cashfree)
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                        {isIndia ? "Domestic INR" : "INR Only"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                      {isIndia
+                        ? "Seamless domestic checkout via UPI AutoPay, cards, and 50+ Indian net banking banks."
+                        : "Cashfree checkout is available for domestic deliveries in India (INR)."}
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
           </div>

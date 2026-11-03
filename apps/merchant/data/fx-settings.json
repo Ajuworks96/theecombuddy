@@ -20,13 +20,13 @@
   },
   "rates": {
     "INR": 1,
-    "USD": 0.010517,
-    "AED": 0.03863,
-    "EUR": 0.009436,
-    "GBP": 0.007865
+    "USD": 0.010534,
+    "AED": 0.038685,
+    "EUR": 0.009408,
+    "GBP": 0.007857
   },
-  "lastFetchedAt": "2026-11-02T13:07:19.167Z",
-  "lastVerifiedAt": "2026-11-02T13:07:19.167Z",
+  "lastFetchedAt": "2026-11-03T09:13:17.982Z",
+  "lastVerifiedAt": "2026-11-03T09:13:17.982Z",
   "isAutomaticAvailable": true,
   "outageStatus": "healthy"
 }

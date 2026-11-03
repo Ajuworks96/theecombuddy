@@ -1,0 +1,100 @@
+# ==============================================================================
+# THE ECOM BUDDY — Staging Docker Compose Topology
+# Pre-Flight Verification Environment
+# ==============================================================================
+
+services:
+  postgres-staging:
+    image: postgres:16-alpine
+    container_name: teb-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging_postgres_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-medusa_staging}
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d medusa_staging"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis-staging:
+    image: redis:7-alpine
+    container_name: teb-staging-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - staging_redis_data:/data
+    ports:
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend-staging:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfiles/Dockerfile.backend
+    container_name: teb-staging-backend
+    restart: unless-stopped
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+      redis-staging:
+        condition: service_healthy
+    environment:
+      PORT: 9000
+      NODE_ENV: production
+      DATABASE_URL: postgres://postgres:staging_postgres_password_123@postgres-staging:5432/medusa_staging
+      REDIS_URL: redis://redis-staging:6379
+      JWT_SECRET: staging_jwt_secret_must_be_32_characters_long
+      COOKIE_SECRET: staging_cookie_secret_must_be_32_characters
+      GUEST_ORDER_SECRET: staging_guest_order_secret_32_chars
+    ports:
+      - "127.0.0.1:9002:9000"
+
+  merchant-staging:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfiles/Dockerfile.merchant
+    container_name: teb-staging-merchant
+    restart: unless-stopped
+    depends_on:
+      - backend-staging
+    environment:
+      PORT: 7001
+      NODE_ENV: production
+      MEDUSA_BACKEND_URL: http://backend-staging:9000
+      DATABASE_URL: postgres://postgres:staging_postgres_password_123@postgres-staging:5432/medusa_staging
+      REDIS_URL: redis://redis-staging:6379
+      LICENSE_FILE_PATH: /app/deploy/license.json
+    ports:
+      - "127.0.0.1:7002:7001"
+
+  storefront-staging:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfiles/Dockerfile.storefront
+    container_name: teb-staging-storefront
+    restart: unless-stopped
+    depends_on:
+      - backend-staging
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      MEDUSA_BACKEND_URL: http://backend-staging:9000
+      DATABASE_URL: postgres://postgres:staging_postgres_password_123@postgres-staging:5432/medusa_staging
+      REDIS_URL: redis://redis-staging:6379
+    ports:
+      - "127.0.0.1:3002:3000"
+
+volumes:
+  staging_postgres_data:
+  staging_redis_data:

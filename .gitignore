@@ -48,6 +48,7 @@ Thumbs.db
 # Temporary Files
 .config/
 tmp/
+*.exe
 deploy/backups/
 deploy/keys/vendor_private_key.pem
 deploy/.env.production

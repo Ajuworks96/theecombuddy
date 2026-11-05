@@ -2,7 +2,7 @@ const { Client } = require("pg");
 
 const BACKEND_URL = "http://localhost:9000";
 const STOREFRONT_URL = "http://localhost:3000";
-const PUBLISHABLE_KEY = "pk_ff34c9cc987ee5880382dba5c708c0e3613226919f08e1f5e3e43c9fd817266a";
+const PUBLISHABLE_KEY = "pk_cfee22fd52344d6a2f23778c3b1614b8e659a22bb4a58feb399864fde668e996";
 
 const headers = {
   "Content-Type": "application/json",

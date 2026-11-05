@@ -21,6 +21,33 @@ export default async function bootstrapProduction({ container }: { container: Me
   logger.info("[bootstrap] THE ECOM BUDDY — LIVE PRODUCTION CLOUD INITIALIZATION");
   logger.info("==============================================================================");
 
+  // 0. Ensure custom theme_configurations schema exists
+  try {
+    const pgConnection = container.resolve(ContainerRegistrationKeys.PG_CONNECTION) as any;
+    if (pgConnection && typeof pgConnection.raw === "function") {
+      await pgConnection.raw(`
+        CREATE TABLE IF NOT EXISTS theme_configurations (
+          id VARCHAR(64) PRIMARY KEY,
+          version INTEGER NOT NULL DEFAULT 1,
+          status VARCHAR(20) NOT NULL DEFAULT 'draft',
+          preset_id VARCHAR(50) NOT NULL DEFAULT 'velora',
+          name VARCHAR(255) NOT NULL,
+          theme_data JSONB NOT NULL,
+          created_by VARCHAR(255) DEFAULT 'admin@theecombuddy.com',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          published_at TIMESTAMPTZ
+        );
+        CREATE INDEX IF NOT EXISTS idx_theme_status ON theme_configurations (status);
+        CREATE INDEX IF NOT EXISTS idx_theme_version ON theme_configurations (version DESC);
+        CREATE INDEX IF NOT EXISTS idx_theme_preset ON theme_configurations (preset_id);
+      `);
+      logger.info("[bootstrap] Verified theme_configurations schema.");
+    }
+  } catch (err: any) {
+    logger.warn(`[bootstrap] theme_configurations schema notice: ${err.message}`);
+  }
+
   // 1. Ensure Admin User Exists
   const adminEmail = process.env.ADMIN_EMAIL || "admin@theecombuddy.com";
   const adminPassword = process.env.ADMIN_PASSWORD || "TheEcomBuddy2026!";
@@ -292,3 +319,4 @@ export default async function bootstrapProduction({ container }: { container: Me
   logger.info(`- Publishable Key:   ${publishableKeyToken}`);
   logger.info("==============================================================================");
 }
+

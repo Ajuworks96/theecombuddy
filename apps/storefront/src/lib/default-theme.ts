@@ -81,31 +81,9 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     showDots: true,
     slides: [
       {
-        id: "slide_01_living",
+        id: "slide_01_apparel",
         isActive: true,
         displayOrder: 1,
-        heading: "Artisanal Living & Sustainable Elegance",
-        subheading: "HANDCRAFTED LUXURY",
-        description:
-          "Explore heirloom pure copper cookware, natural stoneware, and slow-crafted essentials curated directly for discerning homes.",
-        ctaLabel: "Shop Curated Edit",
-        ctaDestination: "/categories/home-kitchen-living",
-        desktopImageUrl:
-          "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1600&q=80",
-        mobileImageUrl:
-          "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=800&q=80",
-        textAlignment: "left",
-        overlayColor: "#1C1917",
-        overlayOpacity: 30,
-        textColor: "#FFFFFF",
-        buttonBgColor: "#C28E5C",
-        buttonTextColor: "#FFFFFF",
-        badge: "Signature Collection",
-      },
-      {
-        id: "slide_02_apparel",
-        isActive: true,
-        displayOrder: 2,
         heading: "Timeless Handwoven Festive & Heritage Textiles",
         subheading: "MASTER WEAVERS",
         description:
@@ -123,6 +101,28 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
         buttonBgColor: "#C28E5C",
         buttonTextColor: "#FFFFFF",
         badge: "100% Organic",
+      },
+      {
+        id: "slide_02_living",
+        isActive: true,
+        displayOrder: 2,
+        heading: "Artisanal Living & Sustainable Elegance",
+        subheading: "HANDCRAFTED LUXURY",
+        description:
+          "Explore heirloom pure copper cookware, natural stoneware, and slow-crafted essentials curated directly for discerning homes.",
+        ctaLabel: "Shop Curated Edit",
+        ctaDestination: "/categories/home-kitchen-living",
+        desktopImageUrl:
+          "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1600&q=80",
+        mobileImageUrl:
+          "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=800&q=80",
+        textAlignment: "left",
+        overlayColor: "#1C1917",
+        overlayOpacity: 30,
+        textColor: "#FFFFFF",
+        buttonBgColor: "#C28E5C",
+        buttonTextColor: "#FFFFFF",
+        badge: "Signature Collection",
       },
       {
         id: "slide_03_audio",
@@ -145,6 +145,72 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
         buttonBgColor: "#C28E5C",
         buttonTextColor: "#FFFFFF",
         badge: "Audiophile Grade",
+      },
+      {
+        id: "slide_04_wellness",
+        isActive: true,
+        displayOrder: 4,
+        heading: "Pure Cold-Pressed Herbal & Ayurvedic Formulations",
+        subheading: "AYURVEDIC BOTANICALS",
+        description:
+          "Ethically harvested botanical essences, single-origin saffron extracts, and restorative herbal oils rooted in ancient balance.",
+        ctaLabel: "Explore Wellness",
+        ctaDestination: "/categories/health-ayurvedic-wellness",
+        desktopImageUrl:
+          "https://images.unsplash.com/photo-1608248597359-5776c5b6b107?auto=format&fit=crop&w=1600&q=80",
+        mobileImageUrl:
+          "https://images.unsplash.com/photo-1608248597359-5776c5b6b107?auto=format&fit=crop&w=800&q=80",
+        textAlignment: "left",
+        overlayColor: "#1C1917",
+        overlayOpacity: 30,
+        textColor: "#FFFFFF",
+        buttonBgColor: "#C28E5C",
+        buttonTextColor: "#FFFFFF",
+        badge: "100% Ayurvedic",
+      },
+      {
+        id: "slide_05_festive",
+        isActive: true,
+        displayOrder: 5,
+        heading: "Handcrafted Festive Gift Boxes & Heirloom Sets",
+        subheading: "CURATED GIFTING",
+        description:
+          "Celebrate timeless traditions with artisanal brass accents, organic delicacies, and festive bespoke hampers curated for meaningful moments.",
+        ctaLabel: "Discover Festive Edit",
+        ctaDestination: "/collections/festive-specials",
+        desktopImageUrl:
+          "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1600&q=80",
+        mobileImageUrl:
+          "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80",
+        textAlignment: "left",
+        overlayColor: "#1C1917",
+        overlayOpacity: 30,
+        textColor: "#FFFFFF",
+        buttonBgColor: "#C28E5C",
+        buttonTextColor: "#FFFFFF",
+        badge: "Festive Drop",
+      },
+      {
+        id: "slide_06_beauty",
+        isActive: true,
+        displayOrder: 6,
+        heading: "Restorative Clean Beauty for Everyday Radiance",
+        subheading: "BOTANICAL FORMULAS",
+        description:
+          "Nontoxic, cruelty-free apothecary formulations crafted with organic plant actives for sustained skin resilience.",
+        ctaLabel: "Explore Apothecary",
+        ctaDestination: "/categories/beauty-personal-care",
+        desktopImageUrl:
+          "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1600&q=80",
+        mobileImageUrl:
+          "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80",
+        textAlignment: "left",
+        overlayColor: "#1C1917",
+        overlayOpacity: 30,
+        textColor: "#FFFFFF",
+        buttonBgColor: "#C28E5C",
+        buttonTextColor: "#FFFFFF",
+        badge: "Clean Certified",
       },
     ],
   },

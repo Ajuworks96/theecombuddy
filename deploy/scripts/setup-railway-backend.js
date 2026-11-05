@@ -35,8 +35,7 @@ async function main() {
       input: {
         dockerfilePath: "deploy/Dockerfiles/Dockerfile.backend",
         healthcheckPath: "/health",
-        healthcheckTimeout: 30,
-        preDeployCommand: "npm run predeploy",
+        healthcheckTimeout: 15,
       },
     }
   );
@@ -127,3 +126,4 @@ async function main() {
 }
 
 main().catch(console.error);
+

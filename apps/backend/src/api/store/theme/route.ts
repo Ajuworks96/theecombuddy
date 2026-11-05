@@ -75,8 +75,10 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       theme: publicTheme,
     });
   } catch (err: any) {
-    return res.status(500).json({
-      error: err.message || "Failed to load published theme",
+    console.warn("[store/theme] Failed to load theme, returning fallback null:", err.message);
+    return res.status(200).json({
+      theme: null,
+      message: "Fallback: default theme active",
     });
   }
 };

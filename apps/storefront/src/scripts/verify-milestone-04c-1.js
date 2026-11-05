@@ -10,7 +10,7 @@ const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000";
 const STOREFRONT_URL = process.env.STOREFRONT_URL || "http://localhost:3000";
 const PUBLISHABLE_KEY =
   process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
-  "pk_ff34c9cc987ee5880382dba5c708c0e3613226919f08e1f5e3e43c9fd817266a";
+  "pk_cfee22fd52344d6a2f23778c3b1614b8e659a22bb4a58feb399864fde668e996";
 const GUEST_ORDER_SECRET =
   process.env.GUEST_ORDER_SECRET || "supersecret_ecom_buddy_jwt_token_development_only";
 

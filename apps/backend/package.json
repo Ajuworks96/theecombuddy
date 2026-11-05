@@ -16,6 +16,7 @@
     "setup:02d-b": "medusa exec ./src/scripts/setup-milestone-02d-b.ts",
     "verify:02d-b": "medusa exec ./src/scripts/verify-milestone-02d-b.ts",
     "db:migrate": "medusa db:migrate",
+    "bootstrap:prod": "medusa exec ./src/scripts/bootstrap-production.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

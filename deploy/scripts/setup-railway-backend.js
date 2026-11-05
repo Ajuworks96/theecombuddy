@@ -36,7 +36,7 @@ async function main() {
         dockerfilePath: "deploy/Dockerfiles/Dockerfile.backend",
         healthcheckPath: "/health",
         healthcheckTimeout: 30,
-        preDeployCommand: "npm run db:migrate --workspace=@the-ecom-buddy/backend && npm run bootstrap:prod --workspace=@the-ecom-buddy/backend",
+        preDeployCommand: "npm run predeploy",
       },
     }
   );

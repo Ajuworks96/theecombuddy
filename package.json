@@ -15,6 +15,7 @@
     "redis:stop": "node deploy/scripts/local-redis.js stop",
     "redis:status": "node deploy/scripts/local-redis.js status",
     "db:migrate": "npm run db:migrate --workspace=@the-ecom-buddy/backend",
+    "predeploy": "npm run db:migrate --workspace=@the-ecom-buddy/backend && npm run bootstrap:prod --workspace=@the-ecom-buddy/backend",
     "seed": "npm run seed --workspace=@the-ecom-buddy/backend",
     "verify": "npm run verify --workspace=@the-ecom-buddy/backend",
     "setup:02c": "npm run setup:02c --workspace=@the-ecom-buddy/backend",

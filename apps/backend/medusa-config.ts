@@ -5,6 +5,9 @@ loadEnv(process.env.NODE_ENV || "development", process.cwd());
 const isRedisConfigured = Boolean(process.env.REDIS_URL);
 
 export default defineConfig({
+  admin: {
+    disable: process.env.MEDUSA_DISABLE_ADMIN === "true",
+  },
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL || "postgres://postgres:password@localhost:5432/medusa_ecom_buddy",
     redisUrl: process.env.REDIS_URL,

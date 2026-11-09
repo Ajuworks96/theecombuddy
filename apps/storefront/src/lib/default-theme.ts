@@ -81,31 +81,9 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     showDots: true,
     slides: [
       {
-        id: "slide_01_apparel",
+        id: "slide_01_living",
         isActive: true,
         displayOrder: 1,
-        heading: "Timeless Handwoven Festive & Heritage Textiles",
-        subheading: "MASTER WEAVERS",
-        description:
-          "Breathable organic linen kurtas, raw tussar silk stoles, and contemporary silhouettes crafted with authentic Indian heritage.",
-        ctaLabel: "Explore Heritage Wear",
-        ctaDestination: "/categories/apparel-ethnic-wear",
-        desktopImageUrl:
-          "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1600&q=80",
-        mobileImageUrl:
-          "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80",
-        textAlignment: "left",
-        overlayColor: "#1C1917",
-        overlayOpacity: 35,
-        textColor: "#FFFFFF",
-        buttonBgColor: "#C28E5C",
-        buttonTextColor: "#FFFFFF",
-        badge: "100% Organic",
-      },
-      {
-        id: "slide_02_living",
-        isActive: true,
-        displayOrder: 2,
         heading: "Artisanal Living & Sustainable Elegance",
         subheading: "HANDCRAFTED LUXURY",
         description:
@@ -123,6 +101,28 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
         buttonBgColor: "#C28E5C",
         buttonTextColor: "#FFFFFF",
         badge: "Signature Collection",
+      },
+      {
+        id: "slide_02_apparel",
+        isActive: true,
+        displayOrder: 2,
+        heading: "Timeless Handwoven Festive & Heritage Textiles",
+        subheading: "MASTER WEAVERS",
+        description:
+          "Breathable organic linen kurtas, raw tussar silk stoles, and contemporary silhouettes crafted with authentic Indian heritage.",
+        ctaLabel: "Explore Heritage Wear",
+        ctaDestination: "/categories/apparel-ethnic-wear",
+        desktopImageUrl:
+          "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1600&q=80",
+        mobileImageUrl:
+          "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=800&q=80",
+        textAlignment: "left",
+        overlayColor: "#1C1917",
+        overlayOpacity: 35,
+        textColor: "#FFFFFF",
+        buttonBgColor: "#C28E5C",
+        buttonTextColor: "#FFFFFF",
+        badge: "100% Organic",
       },
       {
         id: "slide_03_audio",

@@ -18,7 +18,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
   autoplaySpeed = 5000,
   showArrows = true,
   showDots = true,
-  presetId = "velora",
+  presetId = "crescendo",
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -26,7 +26,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
   const touchEndX = useRef<number | null>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
 
-  const activeSlides = slides.filter((s) => s.isActive !== false);
+  const activeSlides = slides.filter((s) => s.isActive);
   const count = activeSlides.length;
 
   const goToNext = useCallback(() => {
@@ -91,6 +91,15 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
 
   if (count === 0) return null;
 
+  const currentSlide = activeSlides[currentIndex];
+
+  const alignmentClass =
+    currentSlide.textAlignment === "center"
+      ? "items-center text-center mx-auto"
+      : currentSlide.textAlignment === "right"
+      ? "items-end text-right ml-auto"
+      : "items-start text-left mr-auto";
+
   return (
     <div
       ref={sliderRef}
@@ -105,126 +114,268 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       data-preset={presetId}
-      className="relative w-full overflow-hidden bg-[#FAFAF9] select-none focus:outline-none py-8 sm:py-12 lg:py-16"
-      style={{ minHeight: "560px" }}
+      className={`relative w-full overflow-hidden bg-[var(--surface-base)] select-none focus:outline-none ${
+        presetId === "velora"
+          ? "py-8 sm:py-12 bg-gradient-to-b from-[var(--surface-base)] to-[var(--surface-subtle)]"
+          : ""
+      }`}
+      style={{ minHeight: "500px", height: presetId === "velora" ? "76vh" : "72vh", maxHeight: "760px" }}
     >
-      {/* Slides Viewport */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {activeSlides.map((slide, idx) => {
-          const isCurrent = idx === currentIndex;
-          return (
-            <div
-              key={slide.id || idx}
-              role="group"
-              aria-roledescription="slide"
-              aria-label={`Slide ${idx + 1} of ${count}: ${slide.heading}`}
-              aria-hidden={!isCurrent}
-              className={`transition-opacity duration-700 ease-in-out ${
-                isCurrent ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none absolute inset-0"
-              }`}
-            >
-              {/* Asymmetrical tactile split hero (Velora Minimal Luxury) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-                
+      {/* Slides */}
+      {activeSlides.map((slide, idx) => {
+        const isCurrent = idx === currentIndex;
+        return (
+          <div
+            key={slide.id}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`Slide ${idx + 1} of ${count}: ${slide.heading}`}
+            aria-hidden={!isCurrent}
+            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+              isCurrent ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
+            }`}
+          >
+            {/* Visual Media Composition */}
+            {presetId === "velora" ? (
+              /* Velora Minimal Luxury: Asymmetrical tactile split hero */
+              <div className="max-w-7xl h-full mx-auto px-6 sm:px-10 lg:px-16 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
                 {/* Left Column: Editorial Typography */}
-                <div className="lg:col-span-6 flex flex-col items-start text-left z-10 order-2 lg:order-1 pt-4 lg:pt-0">
-                  {/* Curated Pill Tag Badge */}
+                <div className="lg:col-span-5 flex flex-col gap-4 text-left z-10 order-2 lg:order-1">
                   {slide.badge && (
-                    <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-serif italic text-stone-700 bg-white/80 border border-stone-300/80 shadow-xs mb-3">
+                    <span className="self-start px-3 py-1 rounded-full text-xs font-serif italic tracking-wider bg-[var(--brand-accent)]/20 text-[var(--brand-accent)] border border-[var(--brand-accent)]/30">
                       {slide.badge}
                     </span>
                   )}
-
-                  {/* Kicker / Subheading */}
                   {slide.subheading && (
-                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500 mb-2">
+                    <span className="text-xs uppercase tracking-widest text-[var(--text-muted)] font-semibold">
                       {slide.subheading}
                     </span>
                   )}
-
-                  {/* Majestic Title */}
-                  <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-normal tracking-tight text-stone-900 leading-[1.15] mb-4">
+                  <h1 className="font-[var(--font-display)] text-3xl sm:text-4xl lg:text-5xl font-normal tracking-tight text-[var(--text-primary)] leading-[1.2]">
                     {slide.heading}
                   </h1>
-
-                  {/* Description */}
                   {slide.description && (
-                    <p className="text-stone-600 text-sm sm:text-base leading-relaxed max-w-lg mb-6">
+                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed max-w-md">
                       {slide.description}
                     </p>
                   )}
-
-                  {/* CTA Button */}
                   {slide.ctaLabel && (
-                    <div>
+                    <div className="pt-2">
                       <a
                         href={slide.ctaDestination || "/products"}
-                        className="inline-flex items-center gap-2 px-7 py-3.5 text-xs font-semibold uppercase tracking-widest rounded-lg bg-[#C28E5C] hover:bg-[#A87445] text-white shadow-sm hover:shadow transition-all group"
+                        className="inline-flex items-center gap-2 px-6 py-3 text-xs font-semibold uppercase tracking-widest rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] transition-all shadow-md"
                       >
                         <span>{slide.ctaLabel}</span>
-                        <span className="transition-transform group-hover:translate-x-1" aria-hidden="true">&rarr;</span>
+                        <span>&rarr;</span>
                       </a>
                     </div>
                   )}
                 </div>
 
                 {/* Right Column: Framed Arch/Stone Image */}
-                <div className="lg:col-span-6 flex items-center justify-center order-1 lg:order-2">
-                  <div className="relative w-full max-w-lg aspect-[4/3] rounded-3xl overflow-hidden border border-stone-200/80 shadow-xl bg-stone-100">
+                <div className="lg:col-span-7 h-full flex items-center justify-center order-1 lg:order-2">
+                  <div className="relative w-full max-w-lg aspect-[4/3] rounded-3xl overflow-hidden border border-[var(--border-subtle)] shadow-2xl bg-[var(--surface-muted)]">
                     <img
                       src={slide.desktopImageUrl || slide.mobileImageUrl}
                       alt={slide.heading}
                       className="w-full h-full object-cover object-center"
-                      loading={idx === 0 ? "eager" : "lazy"}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
                   </div>
                 </div>
-
               </div>
-            </div>
-          );
-        })}
-      </div>
+            ) : (
+              /* Full-Bleed Composition for Crescendo, Aero Step & Philox */
+              <>
+                <picture className="absolute inset-0 w-full h-full">
+                  {slide.mobileImageUrl && (
+                    <source media="(max-width: 768px)" srcSet={slide.mobileImageUrl} />
+                  )}
+                  <img
+                    src={slide.desktopImageUrl || slide.mobileImageUrl}
+                    alt={slide.heading}
+                    className="w-full h-full object-cover object-center"
+                  />
+                </picture>
 
-      {/* Prev / Next Circular Navigation Arrows */}
+                {/* Darkening / tint overlay */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundColor: slide.overlayColor || "#0B0F19",
+                    opacity: (slide.overlayOpacity ?? 40) / 100,
+                  }}
+                />
+
+                {/* Content Overlay */}
+                <div className="relative z-10 max-w-7xl h-full mx-auto px-6 sm:px-10 lg:px-16 flex flex-col justify-center">
+                  <div className={`max-w-2xl flex flex-col gap-4 ${alignmentClass}`}>
+                    {/* Badge / Pill */}
+                    {slide.badge && (
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                          presetId === "aero_step"
+                            ? "bg-[var(--brand-primary)] text-white shadow-lg transform -skew-x-6"
+                            : presetId === "philox"
+                            ? "bg-white text-emerald-800 shadow"
+                            : "bg-white/20 text-white backdrop-blur-md border border-white/20"
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                        {slide.badge}
+                      </span>
+                    )}
+
+                    {/* Subheading */}
+                    {slide.subheading && (
+                      <span
+                        style={{ color: slide.textColor || "#FFFFFF" }}
+                        className="text-xs sm:text-sm font-semibold tracking-widest uppercase opacity-90"
+                      >
+                        {slide.subheading}
+                      </span>
+                    )}
+
+                    {/* Heading */}
+                    <h1
+                      style={{ color: slide.textColor || "#FFFFFF" }}
+                      className={`font-[var(--font-display)] text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.15] ${
+                        presetId === "aero_step" ? "uppercase tracking-tighter italic" : ""
+                      }`}
+                    >
+                      {slide.heading}
+                    </h1>
+
+                    {/* Description */}
+                    {slide.description && (
+                      <p
+                        style={{ color: slide.textColor || "#FFFFFF" }}
+                        className="text-sm sm:text-base lg:text-lg opacity-85 leading-relaxed max-w-xl"
+                      >
+                        {slide.description}
+                      </p>
+                    )}
+
+                    {/* CTA Buttons */}
+                    {slide.ctaLabel && (
+                      <div className="pt-2 flex flex-wrap items-center gap-3">
+                        <a
+                          href={slide.ctaDestination || "/products"}
+                          style={{
+                            backgroundColor: slide.buttonBgColor || "var(--brand-primary)",
+                            color: slide.buttonTextColor || "#FFFFFF",
+                          }}
+                          className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-semibold rounded-[var(--theme-radius)] shadow-lg hover:brightness-110 active:scale-95 transition-all ${
+                            presetId === "aero_step" ? "uppercase tracking-wider font-extrabold" : ""
+                          }`}
+                        >
+                          <span>{slide.ctaLabel}</span>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                          </svg>
+                        </a>
+
+                        {/* Philox Dual CTA */}
+                        {presetId === "philox" && (
+                          <a
+                            href="/collections/festive-specials"
+                            className="inline-flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-semibold rounded-[var(--theme-radius)] bg-white/20 text-white backdrop-blur-md hover:bg-white/30 border border-white/30 transition-all"
+                          >
+                            <span>Browse Offers</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Crescendo Electronics Technical Specs Ticker Bar (Ref 02) */}
+      {presetId === "crescendo" && (
+        <div className="absolute bottom-0 inset-x-0 z-20 bg-black/80 backdrop-blur-md border-t border-white/10 px-4 py-2 hidden sm:flex items-center justify-between text-[11px] font-mono text-emerald-400">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              DIRECT AUDIO ENGINE
+            </span>
+            <span className="text-stone-500">•</span>
+            <span className="text-stone-300">HI-RES AUDIO SPEC</span>
+            <span className="text-stone-500">•</span>
+            <span className="text-stone-300">STUDIO MASTERING READY</span>
+          </div>
+          <div className="text-stone-400">
+            SLIDE {currentIndex + 1} / {count}
+          </div>
+        </div>
+      )}
+
+      {/* Aero Step Dynamic Slide Index Counter (Ref 04) */}
+      {presetId === "aero_step" && (
+        <div className="absolute top-6 right-6 z-20 hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 text-white backdrop-blur-md border border-white/20 font-mono text-xs font-bold tracking-wider">
+          <span className="text-[var(--brand-primary)]">0{currentIndex + 1}</span>
+          <span className="text-white/40">/</span>
+          <span>0{count}</span>
+        </div>
+      )}
+
+      {/* Prev / Next Arrows */}
       {showArrows && count > 1 && (
-        <div className="absolute inset-y-0 left-0 right-0 z-20 flex items-center justify-between px-3 sm:px-6 pointer-events-none">
+        <div className="absolute inset-y-0 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-6 pointer-events-none">
           <button
             type="button"
             onClick={goToPrev}
-            className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-white text-stone-800 border border-stone-200 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#C28E5C]"
+            className={`pointer-events-auto p-2 sm:p-3 rounded-full backdrop-blur-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] ${
+              presetId === "velora"
+                ? "bg-stone-100/80 hover:bg-stone-200 text-stone-800 border-stone-300 shadow"
+                : "bg-black/40 hover:bg-black/70 text-white border-white/10"
+            }`}
             aria-label="Previous slide"
           >
-            <svg className="w-5 h-5 text-stone-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <button
             type="button"
             onClick={goToNext}
-            className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-white text-stone-800 border border-stone-200 shadow-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#C28E5C]"
+            className={`pointer-events-auto p-2 sm:p-3 rounded-full backdrop-blur-sm border transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] ${
+              presetId === "velora"
+                ? "bg-stone-100/80 hover:bg-stone-200 text-stone-800 border-stone-300 shadow"
+                : "bg-black/40 hover:bg-black/70 text-white border-white/10"
+            }`}
             aria-label="Next slide"
           >
-            <svg className="w-5 h-5 text-stone-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         </div>
       )}
 
-      {/* Slide Indicators: Minimalist Horizontal Bars */}
+      {/* Slide Indicators: Dots or Velora Minimal Lines */}
       {showDots && count > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2 z-20 relative">
+        <div
+          className={`absolute inset-x-0 z-20 flex items-center justify-center gap-2 ${
+            presetId === "crescendo" ? "bottom-10" : "bottom-6"
+          }`}
+        >
           {activeSlides.map((_, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => setCurrentIndex(idx)}
               className={`transition-all duration-300 focus:outline-none ${
-                idx === currentIndex
-                  ? "w-10 h-1 bg-[#C28E5C] rounded-full"
-                  : "w-4 h-1 bg-stone-300 hover:bg-stone-400 rounded-full"
+                presetId === "velora"
+                  ? `h-1 rounded-full ${
+                      idx === currentIndex ? "w-10 bg-[var(--brand-primary)]" : "w-4 bg-stone-300 hover:bg-stone-400"
+                    }`
+                  : `h-2 rounded-full ${
+                      idx === currentIndex ? "w-8 bg-white" : "w-2 bg-white/40 hover:bg-white/70"
+                    }`
               }`}
               aria-label={`Go to slide ${idx + 1}`}
               aria-current={idx === currentIndex ? "true" : undefined}

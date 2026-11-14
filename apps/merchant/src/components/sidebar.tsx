@@ -34,44 +34,83 @@ interface NavSection {
   items: NavItem[];
 }
 
-const navSections: NavSection[] = [
-  {
-    title: "Core Commerce",
-    items: [
-      { label: "Overview", href: "/", icon: DashboardIcon, isImplemented: true },
-      { label: "Products", href: "/products", icon: ProductsIcon, isImplemented: true },
-      { label: "Categories", href: "/categories", icon: CategoriesIcon },
-      { label: "Collections", href: "/collections", icon: CollectionsIcon },
-      { label: "Inventory", href: "/inventory", icon: InventoryIcon },
-      { label: "Orders", href: "/orders", icon: OrdersIcon },
-      { label: "Customers", href: "/customers", icon: CustomersIcon },
-    ],
-  },
-  {
-    title: "Marketing & Growth",
-    items: [
-      { label: "Discounts", href: "/discounts", icon: DiscountsIcon },
-      { label: "Global Selling", href: "/global-selling", icon: GlobeIcon },
-    ],
-  },
-  {
-    title: "Store Management",
-    items: [
-      { label: "Store Appearance", href: "/appearance", icon: AppearanceIcon },
-      { label: "Analytics", href: "/analytics", icon: AnalyticsIcon },
-      { label: "Settings", href: "/settings", icon: SettingsIcon, isImplemented: true },
-    ],
-  },
-];
-
 interface SidebarProps {
   userEmail?: string;
 }
 
-export function Sidebar({ userEmail = "admin@theecombuddy.local" }: SidebarProps) {
+export function Sidebar({ userEmail = "admin@theecombuddy.com" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = React.useState(false);
+  const [liveStats, setLiveStats] = React.useState<{
+    totalProducts?: number;
+    totalOrders?: number;
+    pendingOrders?: number;
+  } | null>(null);
+
+  // Dynamically load real counts from backend database
+  React.useEffect(() => {
+    let isMounted = true;
+    fetch("/api/dashboard/stats")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data) {
+          setLiveStats(data);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname]);
+
+  const navSections: NavSection[] = [
+    {
+      title: "Core Commerce",
+      items: [
+        { label: "Overview", href: "/", icon: DashboardIcon, isImplemented: true },
+        {
+          label: "Products",
+          href: "/products",
+          icon: ProductsIcon,
+          badge:
+            liveStats?.totalProducts !== undefined
+              ? liveStats.totalProducts
+              : undefined,
+          isImplemented: true,
+        },
+        { label: "Categories", href: "/categories", icon: CategoriesIcon },
+        { label: "Collections", href: "/collections", icon: CollectionsIcon },
+        { label: "Inventory", href: "/inventory", icon: InventoryIcon },
+        {
+          label: "Orders",
+          href: "/orders",
+          icon: OrdersIcon,
+          badge:
+            liveStats?.totalOrders !== undefined && liveStats.totalOrders > 0
+              ? liveStats.totalOrders
+              : undefined,
+        },
+        { label: "Customers", href: "/customers", icon: CustomersIcon },
+      ],
+    },
+    {
+      title: "Marketing & Growth",
+      items: [
+        { label: "Discounts", href: "/discounts", icon: DiscountsIcon },
+        { label: "Global Selling", href: "/global-selling", icon: GlobeIcon },
+      ],
+    },
+    {
+      title: "Store Management",
+      items: [
+        { label: "Store Appearance", href: "/appearance", icon: AppearanceIcon },
+        { label: "Analytics", href: "/analytics", icon: AnalyticsIcon },
+        { label: "Settings", href: "/settings", icon: SettingsIcon, isImplemented: true },
+      ],
+    },
+  ];
 
   const handleLogout = async () => {
     try {
@@ -177,7 +216,7 @@ export function Sidebar({ userEmail = "admin@theecombuddy.local" }: SidebarProps
                 {userEmail}
               </div>
               <div className="text-[9px] text-emerald-400 font-medium">
-                Self-Hosted Active
+                Store Admin Active
               </div>
             </div>
           </div>

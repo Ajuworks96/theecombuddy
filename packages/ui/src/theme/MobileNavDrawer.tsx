@@ -173,8 +173,8 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
               <span>{theme.identity.contactEmail}</span>
             </p>
           )}
-          <p className="text-[11px] pt-2 text-[var(--text-muted)] opacity-75">
-            Self-Hosted White-Label Store
+          <p className="text-[11px] pt-2 text-stone-400 font-serif">
+            Studio Editions — Curated for Enduring Permanence
           </p>
         </div>
       </div>

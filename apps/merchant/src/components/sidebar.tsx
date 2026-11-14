@@ -39,11 +39,11 @@ const navSections: NavSection[] = [
     title: "Core Commerce",
     items: [
       { label: "Overview", href: "/", icon: DashboardIcon, isImplemented: true },
-      { label: "Products", href: "/products", icon: ProductsIcon, badge: 520, isImplemented: true },
+      { label: "Products", href: "/products", icon: ProductsIcon, isImplemented: true },
       { label: "Categories", href: "/categories", icon: CategoriesIcon },
       { label: "Collections", href: "/collections", icon: CollectionsIcon },
-      { label: "Inventory", href: "/inventory", icon: InventoryIcon, badge: "1.2k" },
-      { label: "Orders", href: "/orders", icon: OrdersIcon, badge: 3 },
+      { label: "Inventory", href: "/inventory", icon: InventoryIcon },
+      { label: "Orders", href: "/orders", icon: OrdersIcon },
       { label: "Customers", href: "/customers", icon: CustomersIcon },
     ],
   },
@@ -51,7 +51,7 @@ const navSections: NavSection[] = [
     title: "Marketing & Growth",
     items: [
       { label: "Discounts", href: "/discounts", icon: DiscountsIcon },
-      { label: "Global Selling", href: "/global-selling", icon: GlobeIcon, badge: "5 Reg" },
+      { label: "Global Selling", href: "/global-selling", icon: GlobeIcon },
     ],
   },
   {

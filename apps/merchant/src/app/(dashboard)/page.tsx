@@ -252,13 +252,13 @@ export default async function OverviewPage() {
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Catalog Spotlight ({recentProducts.length})
               </h3>
-              <p className="text-[11px] text-slate-500">Seeded commercial catalog</p>
+              <p className="text-[11px] text-slate-500">Active store products</p>
             </div>
             <Link
               href="/products"
               className="text-xs font-semibold text-blue-600 hover:text-blue-500 inline-flex items-center gap-1"
             >
-              <span>View catalog (520)</span>
+              <span>View catalog ({totalProducts})</span>
               <ArrowUpRightIcon size={13} />
             </Link>
           </div>

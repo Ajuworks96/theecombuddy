@@ -19,7 +19,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const title = query ? `Search: "${query}" | The Ecom Buddy` : "Search Catalog | The Ecom Buddy";
   const description = query
     ? `Explore search results for "${query}" across our catalog at The Ecom Buddy.`
-    : "Search across 520+ curated lifestyle, electronics, apparel, and home essentials.";
+    : "Search across curated lifestyle, electronics, apparel, and home essentials.";
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
   const canonicalUrl = query

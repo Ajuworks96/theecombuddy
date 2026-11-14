@@ -1100,11 +1100,13 @@ export class MedusaAdminClient {
     // Low stock detection
     let lowStockCount = 0;
     let totalStockUnits = 0;
-    for (const item of inventoryRes.inventory_items) {
-      const stocked = item.stocked_quantity ?? 0;
-      totalStockUnits += stocked;
-      if (stocked <= 10) {
-        lowStockCount++;
+    if (totalProducts > 0 && Array.isArray(inventoryRes?.inventory_items)) {
+      for (const item of inventoryRes.inventory_items) {
+        const stocked = item.stocked_quantity ?? 0;
+        totalStockUnits += stocked;
+        if (stocked <= 10) {
+          lowStockCount++;
+        }
       }
     }
 

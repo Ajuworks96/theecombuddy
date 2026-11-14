@@ -48,6 +48,7 @@ export default async function OverviewPage() {
     draftProducts = 0,
     totalOrders = 0,
     pendingOrders = 0,
+    totalInventoryUnits = 0,
     lowStockItemsCount = 0,
     recentOrders = [],
     recentProducts = [],
@@ -141,10 +142,12 @@ export default async function OverviewPage() {
             </div>
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight">
-            1,236 SKUs
+            {totalProducts === 0 ? "0 SKUs" : `${totalInventoryUnits || totalProducts} SKUs`}
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-            {lowStockItemsCount > 0 ? (
+            {totalProducts === 0 ? (
+              <span className="text-slate-400">0 items in catalog</span>
+            ) : lowStockItemsCount > 0 ? (
               <span className="text-amber-600 font-medium flex items-center gap-1">
                 <AlertTriangleIcon size={12} />
                 {lowStockItemsCount} low stock alerts

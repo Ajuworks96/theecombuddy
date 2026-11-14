@@ -7,7 +7,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
   publishedAt: "2026-11-03T00:00:00.000Z",
   identity: {
     storeName: "The Ecom Buddy",
-    tagline: "Independently Self-Hosted Direct-to-Consumer Commerce",
+    tagline: "Curated Editions for Enduring Living",
     logoUrl: "/images/logo.svg",
     faviconUrl: "/favicon.ico",
     contactEmail: "care@theecombuddy.in",
@@ -54,7 +54,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
   },
   announcement: {
     enabled: true,
-    text: "✨ WELCOME TO THE ECOM BUDDY: Enjoy Free Insured Express Delivery Across India | Code: WELCOME10",
+    text: "COMPLIMENTARY EXPRESS DELIVERY & DOORSTEP EXCHANGES ACROSS INDIA • PRIVATE PRIVILEGE: CODE ARCHIVE15",
     bgColor: "#C28E5C",
     textColor: "#FFFFFF",
     closeable: true,
@@ -218,7 +218,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     {
       id: "sec_hero",
       type: "hero_slider",
-      title: "Hero Showcase",
+      title: "Seasonal Campaign",
       isEnabled: true,
       displayOrder: 1,
       config: {},
@@ -226,7 +226,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     {
       id: "sec_trust",
       type: "trust_benefits",
-      title: "Store Guarantees",
+      title: "Maison Commitments",
       isEnabled: true,
       displayOrder: 2,
       config: {},
@@ -234,7 +234,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     {
       id: "sec_categories",
       type: "featured_categories",
-      title: "Curated Catalog Categories",
+      title: "Curated Departments",
       isEnabled: true,
       displayOrder: 3,
       config: { limit: 8 },
@@ -242,7 +242,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     {
       id: "sec_products",
       type: "featured_products",
-      title: "Bestselling Curated Essentials",
+      title: "Signature Acquisitions",
       isEnabled: true,
       displayOrder: 4,
       config: { limit: 8 },
@@ -250,7 +250,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     {
       id: "sec_promo",
       type: "promotional_banner",
-      title: "Artisanal Direct-to-Consumer Savings",
+      title: "Seasonal Archive",
       isEnabled: true,
       displayOrder: 5,
       config: {},
@@ -258,7 +258,7 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     {
       id: "sec_editorial",
       type: "editorial_story",
-      title: "Craftsmanship & White-Label Independence",
+      title: "Philosophy & Heritage",
       isEnabled: true,
       displayOrder: 6,
       config: {},
@@ -266,19 +266,53 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
     {
       id: "sec_newsletter",
       type: "newsletter",
-      title: "Join the Exclusive Circle",
+      title: "The Private Journal",
       isEnabled: true,
       displayOrder: 7,
       config: {},
     },
   ],
   footer: {
-    tagline: "Independently self-hosted direct-to-consumer e-commerce platform.",
-    copyrightText: "© 2026 The Ecom Buddy. All rights reserved. Self-Hosted White-Label License.",
-    columns: [],
+    tagline: "Curators of enduring textiles, studio acoustics, and slow-crafted home objects designed for timeless living.",
+    copyrightText: "© 2026 The Ecom Buddy. All rights reserved.",
+    columns: [
+      {
+        id: "col_departments",
+        title: "Departments",
+        links: [
+          { id: "col_link_1", label: "Artisanal Living", href: "/categories/home-kitchen-living" },
+          { id: "col_link_2", label: "Heritage Apparel", href: "/categories/apparel-ethnic-wear" },
+          { id: "col_link_3", label: "Studio Acoustics", href: "/categories/electronics-audio" },
+          { id: "col_link_4", label: "Botanical Wellness", href: "/categories/health-ayurvedic-wellness" },
+          { id: "col_link_5", label: "Festive Archive", href: "/collections/festive-specials" },
+        ],
+      },
+      {
+        id: "col_concierge",
+        title: "Client Care",
+        links: [
+          { id: "col_link_6", label: "Order Tracking", href: "/account/orders" },
+          { id: "col_link_7", label: "Doorstep Exchanges", href: "/returns-and-refunds" },
+          { id: "col_link_8", label: "Shipping & Transit", href: "/shipping-policy" },
+          { id: "col_link_9", label: "Care & Preservation", href: "/faq" },
+          { id: "col_link_10", label: "Client Concierge", href: "/contact" },
+        ],
+      },
+      {
+        id: "col_maison",
+        title: "The Maison",
+        links: [
+          { id: "col_link_11", label: "Our Philosophy", href: "/about" },
+          { id: "col_link_12", label: "Artisan Partners", href: "/about" },
+          { id: "col_link_13", label: "Terms of Service", href: "/terms-and-conditions" },
+          { id: "col_link_14", label: "Privacy Policy", href: "/privacy-policy" },
+          { id: "col_link_15", label: "Cancellation Policy", href: "/cancellation-policy" },
+        ],
+      },
+    ],
     showNewsletter: false,
-    newsletterTitle: "Join the Exclusive Circle",
-    newsletterSubtitle: "Curated catalog drops and seasonal previews.",
+    newsletterTitle: "The Private Journal",
+    newsletterSubtitle: "Curated acquisitions and private client previews.",
     showPaymentIcons: true,
   },
   domain: {

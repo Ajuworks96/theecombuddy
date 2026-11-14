@@ -11,12 +11,14 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({ section })
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const cfg = section?.config || {};
-  const badge = cfg.badge || "VERIFIED STORE OFFER";
-  const headline = cfg.headline || "Seasonal Direct-to-Consumer Savings";
-  const description = cfg.description || "Apply verified store promotion during checkout.";
-  const ctaLabel = cfg.ctaLabel || "Browse Eligible Items";
+  const badge = cfg.badge || "PRIVATE CLIENT PRIVILEGE";
+  const headline = cfg.headline || "The Seasonal Archive — Inaugural Edit.";
+  const description =
+    cfg.description ||
+    "Enjoy an exclusive 15% inaugural privilege across our curated wardrobe, studio audio, and artisanal living collections with code ARCHIVE15.";
+  const ctaLabel = cfg.ctaLabel || "Discover The Capsule";
   const ctaLink = cfg.ctaLink || "/products";
-  const couponCode = cfg.couponCode || "WELCOME10";
+  const couponCode = cfg.couponCode || "ARCHIVE15";
 
   const handleCopy = (code: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -27,72 +29,73 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({ section })
   };
 
   return (
-    <section className="w-full py-12 sm:py-16 bg-[var(--surface-base)]">
+    <section className="w-full py-16 sm:py-24 bg-[#FAF9F5]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-[var(--theme-radius)] overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-8 sm:p-12 lg:p-16 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-xl">
-          {/* Background tint glow */}
-          <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-[var(--brand-primary)]/10 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-[var(--brand-accent)]/10 blur-3xl pointer-events-none" />
+        <div className="relative rounded-3xl overflow-hidden bg-[#181615] text-white p-8 sm:p-14 lg:p-20 shadow-2xl">
+          {/* Subtle warm amber radial glow */}
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-[#C28E5C]/15 blur-[120px] pointer-events-none" />
+          
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            
+            {/* Left Column: Editorial Campaign Invitation */}
+            <div className="lg:col-span-7 flex flex-col items-start gap-5">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] bg-white/10 text-stone-200 border border-white/15 backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#C28E5C]" />
+                {badge}
+              </span>
 
-          {/* Left Column: Promotion Copy */}
-          <div className="relative z-10 max-w-xl flex flex-col items-start gap-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[var(--brand-accent)] text-white shadow">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
-              {badge}
-            </span>
+              <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-normal tracking-tight text-white leading-[1.15]">
+                {headline}
+              </h2>
 
-            <h2 className="font-[var(--font-display)] text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[var(--text-primary)] leading-tight">
-              {headline}
-            </h2>
+              <p className="text-sm sm:text-base text-stone-300 leading-relaxed font-normal max-w-xl">
+                {description}
+              </p>
 
-            <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
-              {description}
-            </p>
+              {/* Coupon Privilege Pill & CTA */}
+              <div className="flex flex-wrap items-center gap-4 pt-3">
+                <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-dashed border-[#C28E5C]/60 bg-[#C28E5C]/10 font-mono text-xs font-semibold tracking-wider text-[#E8C59A]">
+                  <span>CODE: {couponCode}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(couponCode)}
+                    className="p-1 rounded hover:bg-white/10 transition-colors focus:outline-none text-stone-300 hover:text-white"
+                    aria-label="Copy privilege code"
+                  >
+                    {copiedCode === couponCode ? (
+                      <span className="text-[11px] font-sans text-emerald-400 font-medium">Copied!</span>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
 
-            {/* Coupon Code Pill */}
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <div className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-dashed border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 font-mono text-sm font-bold text-[var(--brand-primary)]">
-                <span>{couponCode}</span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(couponCode)}
-                  className="p-1 rounded hover:bg-[var(--brand-primary)]/20 transition-colors focus:outline-none"
-                  aria-label="Copy coupon code"
+                <a
+                  href={ctaLink}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] rounded-xl bg-white text-stone-950 hover:bg-stone-100 transition-all shadow-md active:scale-95"
                 >
-                  {copiedCode === couponCode ? (
-                    <span className="text-xs font-sans text-[var(--brand-primary)] font-semibold">Copied!</span>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  )}
-                </button>
+                  <span>{ctaLabel}</span>
+                  <span aria-hidden="true">&rarr;</span>
+                </a>
               </div>
-
-              <a
-                href={ctaLink}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold rounded-[var(--theme-radius)] bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-primary-hover)] shadow-md transition-all active:scale-95"
-              >
-                <span>{ctaLabel}</span>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </a>
             </div>
-          </div>
 
-          {/* Right Column: Verified Visual Showcase */}
-          <div className="relative z-10 w-full lg:w-96 shrink-0 aspect-[4/3] rounded-[var(--theme-radius)] overflow-hidden border border-[var(--border-subtle)] shadow-2xl">
-            <img
-              src={cfg.imageUrl || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=800&q=80"}
-              alt="Store Promotion"
-              className="w-full h-full object-cover object-center"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4 text-white">
-              <p className="text-xs font-bold uppercase tracking-wider text-[var(--brand-accent)]">Active Promotion</p>
-              <p className="text-sm font-semibold">Valid on eligible orders</p>
+            {/* Right Column: High Fashion Editorial Still */}
+            <div className="lg:col-span-5 w-full aspect-[4/3] sm:aspect-[16/11] rounded-2xl overflow-hidden border border-white/10 shadow-2xl relative">
+              <img
+                src={cfg.imageUrl || "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1000&q=80"}
+                alt="Seasonal Campaign Still"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-stone-300">
+                <span className="uppercase tracking-[0.15em] text-[10px]">Winter Capsule Drop</span>
+                <span className="font-mono text-[11px] text-[#C28E5C]">Limited Edition</span>
+              </div>
             </div>
+
           </div>
         </div>
       </div>

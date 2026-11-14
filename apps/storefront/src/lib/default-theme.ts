@@ -63,11 +63,11 @@ export const DEFAULT_STOREFRONT_THEME: PublicPublishedTheme = {
   navigation: {
     menuItems: [
       { id: "nav_1", href: "/products", label: "Shop All" },
-      { id: "nav_2", href: "/categories/home-kitchen-living", label: "Artisanal Living" },
-      { id: "nav_3", href: "/categories/apparel-ethnic-wear", label: "Heritage Apparel" },
-      { id: "nav_4", href: "/categories/electronics-audio", label: "Electronics" },
-      { id: "nav_5", href: "/categories/health-ayurvedic-wellness", label: "Wellness & Beauty" },
-      { id: "nav_6", href: "/collections/festive-specials", label: "Festive Edit", badge: "NEW" },
+      { id: "nav_2", href: "/categories/apparel-ethnic-wear", label: "Apparel" },
+      { id: "nav_3", href: "/categories/home-kitchen-living", label: "Living" },
+      { id: "nav_4", href: "/categories/electronics-audio", label: "Audio" },
+      { id: "nav_5", href: "/categories/health-ayurvedic-wellness", label: "Wellness" },
+      { id: "nav_6", href: "/collections/festive-specials", label: "Archive", badge: "NEW" },
     ],
     showSearch: true,
     showAccount: true,

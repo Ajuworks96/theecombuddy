@@ -359,9 +359,9 @@ export function createDefaultThemeConfig(): ThemeConfig {
 
     announcement: {
       enabled: true,
-      text: "⚡ FESTIVE FLASH SALE: Flat ₹100 Off + Free Shipping across India! Use code FLAT100",
-      linkUrl: "/collections/festive-specials",
-      bgColor: "#10B981",
+      text: "COMPLIMENTARY EXPRESS DELIVERY & DOORSTEP EXCHANGES ACROSS INDIA • PRIVILEGE CODE ARCHIVE15",
+      linkUrl: "/products",
+      bgColor: "#C28E5C",
       textColor: "#FFFFFF",
       closeable: true,
     },
@@ -369,11 +369,11 @@ export function createDefaultThemeConfig(): ThemeConfig {
     navigation: {
       menuItems: [
         { id: "nav_1", label: "Shop All", href: "/products" },
-        { id: "nav_2", label: "Electronics", href: "/categories/electronics-audio" },
-        { id: "nav_3", label: "Home Living", href: "/categories/home-kitchen-living" },
-        { id: "nav_4", label: "Wellness", href: "/categories/health-ayurvedic-wellness" },
-        { id: "nav_5", label: "Apparel", href: "/categories/apparel-ethnic-wear" },
-        { id: "nav_6", label: "Festive Deals", href: "/collections/festive-specials", badge: "HOT" },
+        { id: "nav_2", label: "Apparel", href: "/categories/apparel-ethnic-wear" },
+        { id: "nav_3", label: "Living", href: "/categories/home-kitchen-living" },
+        { id: "nav_4", label: "Audio", href: "/categories/electronics-audio" },
+        { id: "nav_5", label: "Wellness", href: "/categories/health-ayurvedic-wellness" },
+        { id: "nav_6", label: "Archive", href: "/collections/festive-specials", badge: "NEW" },
       ],
       showSearch: true,
       showAccount: true,
@@ -392,8 +392,8 @@ export function createDefaultThemeConfig(): ThemeConfig {
     sections: [...DEFAULT_HOMEPAGE_SECTIONS],
 
     footer: {
-      tagline: "Independently self-hosted direct-to-consumer e-commerce platform.",
-      copyrightText: "© 2026 The Ecom Buddy. All rights reserved. Self-Hosted White-Label License.",
+      tagline: "Curated Editions for Enduring Living & Artisanal Heritage.",
+      copyrightText: "© 2026 The Ecom Buddy. Studio Editions. All rights reserved.",
       columns: [
         {
           id: "col_shop",

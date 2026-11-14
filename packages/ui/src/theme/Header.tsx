@@ -65,16 +65,16 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* 2. Full-Width Clean Luxury Navigation Bar */}
-      <div className="w-full px-4 sm:px-8 lg:px-12">
-        <div className="max-w-[1400px] mx-auto flex items-center justify-between h-16 sm:h-20 gap-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="max-w-7xl 2xl:max-w-[1440px] mx-auto flex items-center justify-between h-16 sm:h-20 gap-4 lg:gap-8">
           
           {/* Left: Mobile Menu Trigger & Brand Identity */}
-          <div className="flex items-center gap-4 lg:gap-8 shrink-0">
-            {/* Mobile Menu Button */}
+          <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+            {/* Mobile Menu Button - Visible below lg (1024px) */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="xl:hidden p-2 -ml-2 text-stone-900 hover:text-[#C28E5C] transition-colors focus:outline-none"
+              className="lg:hidden p-2 -ml-2 text-stone-900 hover:text-[#C28E5C] transition-colors focus:outline-none"
               aria-label="Open navigation menu"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -82,28 +82,28 @@ export const Header: React.FC<HeaderProps> = ({
               </svg>
             </button>
 
-            {/* Pure Typographic Wordmark (No clumsy square blobs) */}
-            <a href="/" className="group flex flex-col focus:outline-none select-none">
-              <span className="font-serif text-xl sm:text-2xl font-normal tracking-[0.16em] uppercase text-stone-950 group-hover:text-[#C28E5C] transition-colors leading-none">
+            {/* Pure Typographic Wordmark */}
+            <a href="/" className="group flex flex-col focus:outline-none select-none shrink-0">
+              <span className="font-serif text-lg sm:text-xl lg:text-2xl font-normal tracking-[0.14em] sm:tracking-[0.16em] uppercase text-stone-950 group-hover:text-[#C28E5C] transition-colors leading-none whitespace-nowrap">
                 {identity.storeName || "The Ecom Buddy"}
               </span>
-              <span className="text-[9px] uppercase tracking-[0.28em] text-stone-400 font-medium mt-1">
+              <span className="text-[8px] sm:text-[9px] uppercase tracking-[0.26em] text-stone-400 font-medium mt-1">
                 Studio Editions
               </span>
             </a>
           </div>
 
-          {/* Center: Desktop Navigation Links (Single-line, generous tracking, never wraps) */}
-          <nav className="hidden xl:flex items-center gap-7 2xl:gap-9">
+          {/* Center: Desktop Navigation Links (Single-line, luxury tracking, never wraps) */}
+          <nav className="hidden lg:flex items-center justify-center gap-4 xl:gap-7 2xl:gap-9 min-w-0">
             {(navigation?.menuItems || []).map((item) => (
               <a
                 key={item.id}
                 href={item.href}
-                className="relative py-2 text-[11px] font-medium tracking-[0.2em] uppercase text-stone-700 hover:text-stone-950 transition-colors whitespace-nowrap flex items-center gap-1.5 group"
+                className="relative py-2 text-[11px] xl:text-xs font-medium tracking-[0.15em] xl:tracking-[0.2em] uppercase text-stone-700 hover:text-stone-950 transition-colors whitespace-nowrap flex items-center gap-1.5 group shrink-0"
               >
                 <span>{item.label}</span>
                 {item.badge && (
-                  <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] rounded bg-stone-900 text-white">
+                  <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] rounded bg-stone-900 text-white">
                     {item.badge}
                   </span>
                 )}
@@ -113,8 +113,8 @@ export const Header: React.FC<HeaderProps> = ({
             ))}
           </nav>
 
-          {/* Right: Refined Action Suite */}
-          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
+          {/* Right: Refined Action Suite (Safe right padding, never clips against scrollbar) */}
+          <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 shrink-0 pl-2">
             
             {/* Currency Selector (Minimalist clean pill) */}
             {navigation?.showCurrencyPicker && regions.length > 0 && (

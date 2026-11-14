@@ -125,13 +125,13 @@ export function SettingsClient({ initialConfig }: SettingsClientProps) {
       case "sandbox_verified":
         return (
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
-            Sandbox Verified
+            Test Mode Active
           </span>
         );
       case "sandbox_configured":
         return (
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-            Sandbox Configured
+            Test Mode Configured
           </span>
         );
       case "not_configured":

@@ -63,7 +63,7 @@ export default async function OverviewPage() {
             Store Performance Pulse
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time statistics sourced live from Medusa v2 commerce engine.
+            Real-time store performance, revenue, and order analytics.
           </p>
         </div>
 

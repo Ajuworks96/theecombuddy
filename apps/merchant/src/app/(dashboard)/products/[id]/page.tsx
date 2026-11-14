@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeftIcon,
   EditIcon,
   PackageIcon,
   AlertCircleIcon,
   ImageIcon,
+  TrashIcon,
+  RefreshIcon,
 } from "@/components/icons";
 import { Badge } from "@/components/badge";
 import { formatCurrency, formatDate } from "@/lib/formatters";
@@ -19,9 +22,28 @@ export default function ProductDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [product, setProduct] = useState<AdminProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = async () => {
+    if (!product) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        throw new Error(`Failed to delete product (HTTP ${res.status})`);
+      }
+      router.push("/products");
+    } catch (err: any) {
+      alert(err.message || "Failed to delete product");
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
 
   useEffect(() => {
     async function loadProduct() {
@@ -109,8 +131,68 @@ export default function ProductDetailPage({
             <EditIcon size={14} />
             Edit Product
           </Link>
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-3.5 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <TrashIcon size={14} className="text-rose-600" />
+            Delete Product
+          </button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center gap-3 bg-rose-50/50">
+              <div className="w-9 h-9 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <TrashIcon size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Delete &ldquo;{product.title}&rdquo;?
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="p-5 text-xs text-slate-600">
+              Are you sure you want to permanently delete this product and its associated variants from your store catalog?
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-2xs disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshIcon size={12} className="animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <TrashIcon size={12} />
+                    <span>Confirm Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

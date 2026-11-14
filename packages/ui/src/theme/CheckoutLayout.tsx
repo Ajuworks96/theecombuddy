@@ -620,8 +620,8 @@ export const CheckoutLayout: React.FC<CheckoutLayoutProps> = ({
                       <span className="text-xs sm:text-sm font-bold text-[var(--text-primary)]">
                         UPI / Cards / NetBanking (Razorpay)
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                        {isIndia ? "Sandbox Verified" : "INR Only"}
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                        {isIndia ? "Instant & Secure" : "INR Only"}
                       </span>
                     </div>
                     <p className="text-[11px] text-[var(--text-muted)] mt-1">

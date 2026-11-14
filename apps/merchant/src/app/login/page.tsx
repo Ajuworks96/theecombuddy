@@ -110,18 +110,8 @@ function LoginForm() {
         </div>
       </form>
 
-      <div className="mt-6 pt-5 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">Self-Hosted License:</span>
-          <span className="text-slate-300 font-medium">Perpetual Single-Merchant</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500">Commerce Core:</span>
-          <span className="text-emerald-400 font-medium flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Medusa v2 Live (Port 9000)
-          </span>
-        </div>
+      <div className="mt-6 pt-5 border-t border-slate-800/80 text-[11px] text-slate-500 text-center">
+        <span>Protected Merchant Session • SSL 256-bit Encrypted</span>
       </div>
     </div>
   );

@@ -58,8 +58,8 @@ export function ComingSoonPlaceholder({
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-          <span>Official Medusa v2 Engine Connected</span>
-          <span>Zero Fake Data Policy Enforced</span>
+          <span>Enterprise Commerce Suite</span>
+          <span>Security & Reliability Active</span>
         </div>
       </div>
     </div>
